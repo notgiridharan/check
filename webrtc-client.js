@@ -249,7 +249,7 @@
       let entry = this._peers.get(fromId);
       if (!entry) {
         // Peer joined before we processed peer-joined-pending; create PC now
-        this._createPc(fromId, 'Peer', 'student', false);
+        this._createPc(fromId, '', 'student', false);
         entry = this._peers.get(fromId);
       }
       const { pc } = entry;

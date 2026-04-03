@@ -392,16 +392,75 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 }
 .focus-sync-badge.show{display:block}
 
-/* ── PIN BUTTON on tiles ── */
-.pin-btn{
-  position:absolute;top:.35rem;right:.35rem;
-  width:24px;height:24px;border-radius:var(--r3);
-  background:rgba(0,0,0,.55);border:none;color:rgba(255,255,255,.8);
-  cursor:pointer;font-size:.7rem;
-  display:flex;align-items:center;justify-content:center;
-  opacity:0;transition:opacity .15s;z-index:3;
+/* ── TILE CLICK HINT ── */
+.vtile{cursor:pointer}
+.vtile:hover::after{
+  content:'Click to focus';
+  position:absolute;bottom:2.4rem;left:50%;transform:translateX(-50%);
+  font-size:.6rem;color:rgba(255,255,255,.7);background:rgba(0,0,0,.55);
+  padding:.18rem .55rem;border-radius:20px;pointer-events:none;
+  white-space:nowrap;opacity:1;transition:opacity .2s;
+  z-index:5;
 }
-.vtile.pinned .pin-btn{opacity:1;background:rgba(59,111,240,.8);color:#fff}
+
+/* ── FOCUS OVERLAY — full-screen focused tile ── */
+#focusOverlay{
+  position:fixed;inset:0;z-index:400;
+  background:rgba(0,0,0,.92);
+  backdrop-filter:blur(8px);
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  animation:tIn .18s ease;
+}
+#focusOverlay.open{display:flex}
+#focusTileWrap{
+  position:relative;
+  width:min(92vw, calc(92vh * 16 / 9));
+  max-width:1200px;
+  aspect-ratio:16/9;
+  border-radius:var(--r);
+  overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,.8);
+  background:var(--surface);
+}
+#focusTileWrap video{
+  width:100%;height:100%;object-fit:cover;display:block;background:#000;
+}
+#focusTileWrap .vtile-avatar{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:1rem;
+  background:var(--surface);
+}
+#focusTileWrap .vtile-avatar .avatar-ring{
+  width:96px;height:96px;font-size:2rem;
+}
+#focusTileWrap .vtile-avatar .avatar-name{
+  font-size:1rem;color:var(--text2);
+}
+#focusOverlayLabel{
+  position:absolute;top:1rem;left:1rem;
+  display:flex;align-items:center;gap:.5rem;
+  background:rgba(0,0,0,.6);border-radius:20px;
+  padding:.35rem .85rem;
+  font-size:.85rem;font-weight:600;color:#fff;
+  backdrop-filter:blur(4px);
+}
+#focusOverlayClose{
+  position:absolute;top:1rem;right:1rem;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+  color:#fff;cursor:pointer;font-size:1rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:.15s;
+}
+#focusOverlayClose:hover{background:rgba(239,68,68,.7);border-color:var(--red);}
+#focusOverlayName{
+  margin-top:.75rem;
+  font-size:1rem;font-weight:600;color:var(--text2);
+  letter-spacing:.02em;
+}
 
 /* grid with pinned tile: unpin others to a bottom strip */
 .video-grid.has-pinned{
@@ -512,7 +571,6 @@ input[type=range].ai-sl::-webkit-slider-thumb{
             <div style="font-size:.68rem;color:var(--text3);margin-top:.3rem" id="localAvatarName">You</div>
           </div>
           <video id="localVideo" autoplay muted playsinline webkit-playsinline style="display:none;width:100%;height:100%;object-fit:cover"></video>
-          <button class="pin-btn" onclick="pinTile('localTile')" title="Pin">⊞</button>
           <div class="vtile-label">
             <span class="vtile-name" id="localTileName">You</span>
             <span class="vtile-badge" id="localRoleBadge">HOST</span>
@@ -806,6 +864,16 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 </div>
 <div class="toast-stack" id="toastStack"></div>
 
+<!-- ── FOCUS OVERLAY — click a tile to expand it full screen ── -->
+<div id="focusOverlay" onclick="closeFocusOverlay()">
+  <div id="focusTileWrap" onclick="event.stopPropagation()">
+    <!-- content injected by JS -->
+    <div id="focusOverlayLabel"><span id="focusOverlayRole"></span><span id="focusOverlayLabelName">...</span></div>
+    <button id="focusOverlayClose" onclick="closeFocusOverlay()" title="Close (Esc)">✕</button>
+  </div>
+  <div id="focusOverlayName"></div>
+</div>
+
 <script>
 // ─────────────────────────────────────────────
 // PDF.JS WORKER
@@ -882,8 +950,11 @@ function initRoom(){
   updateDocUI(); // set up host/student doc view
   // wire localTile pin button
   setTimeout(() => {
-    const pb = document.querySelector('#localTile .pin-btn');
-    if (pb) pb.onclick = (e) => { e.stopPropagation(); pinTile('localTile'); };
+    const lt = document.getElementById('localTile');
+    if (lt && !lt._focusWired) {
+      lt.addEventListener('click', openFocusOverlayLocal);
+      lt._focusWired = true;
+    }
     updateGrid();
   }, 100);
 }
@@ -2271,6 +2342,8 @@ function updateHostControls() {
 // WEBRTC INTEGRATION
 // ═══════════════════════════════════════════════════════
 let LM = null;
+// Map of peerId → { name, role } populated from signalling
+const _peerMeta = new Map();
 
 function initWebRTC() {
   if (window._socketIoMissing || window._webrtcClientMissing || !window.LITEMEET_SERVER_URL) {
@@ -2293,12 +2366,20 @@ function initWebRTC() {
     applyRoleLayout();
     updateHostControls();
     updateDocUI(); // refresh host/student doc controls after role confirmed
+    // Populate _peerMeta for all existing participants
+    participants.forEach(({ peerId, name: pName, role: pRole }) => {
+      if (pName) _peerMeta.set(peerId, { name: pName, role: pRole });
+      addParticipant(pName, pRole, peerId);
+    });
     sysMsg('Connected. ' + participants.length + ' participant(s) in room.');
     toast('Room joined · WebRTC ready', '🔐');
   });
 
   LM.on('peer-joined-pending', ({ peerId, name, role }) => {
+    _peerMeta.set(peerId, { name, role });  // store so peer-stream can use it
     addParticipant(name, role, peerId);
+    // If their tile already exists with placeholder name, update it
+    _updateTileName(peerId, name, role);
     sysMsg(name + ' joined.');
     toast(name + ' joined', '👋');
   });
@@ -2385,42 +2466,108 @@ function initWebRTC() {
 
 // ── Remote video tiles ────────────────────────────────
 function addRemoteVideoTile(peerId, stream) {
+  // Lookup name/role — first from dedicated map, then from participants list
+  const meta = _peerMeta.get(peerId) || S.participants.find(p => p.peerId === peerId);
+  const rname = (meta && meta.name) ? meta.name : 'Participant';
+  const rrole = (meta && meta.role) ? meta.role : 'student';
+
   let tile = document.getElementById('tile-' + peerId);
   if (tile) {
+    // Tile already exists — just update the stream
     const v = tile.querySelector('video');
-    if (v) { v.srcObject = stream; v.play().catch(() => {}); }
+    if (v) {
+      v.srcObject = stream;
+      _playVideo(v, peerId);
+    }
     return;
   }
-  const found = S.participants.find(p => p.peerId === peerId);
-  const rname = found ? found.name : 'Peer';
-  const rrole = found ? found.role : 'student';
 
   tile = document.createElement('div');
   tile.className = 'vtile';
   tile.id = 'tile-' + peerId;
+  tile.title = 'Click to focus';
   tile.innerHTML =
     '<div class="vtile-avatar" id="avatar-' + peerId + '">'
-    + '<div class="avatar-ring" id="ring-' + peerId + '" style="background:' + (rrole === 'host' ? 'var(--blue)' : 'var(--surface3)') + '">' + rname.slice(0, 2).toUpperCase() + '</div>'
-    + '<div style="font-size:.68rem;color:var(--text3);margin-top:.3rem">' + rname + '</div>'
+    + '<div class="avatar-ring" id="ring-' + peerId + '" style="background:' + (rrole === 'host' ? 'var(--blue)' : '#3b4f8a') + '">' + rname.slice(0, 2).toUpperCase() + '</div>'
+    + '<div style="font-size:.68rem;color:var(--text3);margin-top:.3rem" id="avname-' + peerId + '">' + rname + '</div>'
     + '</div>'
-    + '<video id="vid-' + peerId + '" autoplay playsinline webkit-playsinline style="display:none;width:100%;height:100%;object-fit:cover"></video>'
+    + '<video id="vid-' + peerId + '" autoplay playsinline webkit-playsinline style="width:100%;height:100%;object-fit:cover;display:none"></video>'
     + '<div class="vtile-label">'
-    + '<span class="vtile-name">' + rname + '</span>'
-    + '<span class="vtile-badge" id="badge-' + peerId + '">' + (rrole === 'host' ? 'HOST' : 'HD') + '</span>'
+    + '<span class="vtile-name" id="tilename-' + peerId + '">' + rname + '</span>'
+    + '<span class="vtile-badge" id="badge-' + peerId + '">' + (rrole === 'host' ? 'HOST' : 'LIVE') + '</span>'
     + '<span class="vtile-mute" id="mute-' + peerId + '">🎤</span>'
     + '</div>';
+
+  // Click on tile → open focus overlay
+  tile.addEventListener('click', () => openFocusOverlay(peerId));
 
   placeRemoteTile(tile, rrole);
 
   const v = tile.querySelector('video');
   v.srcObject = stream;
   v.muted = false;
-  v.play()
-    .then(() => { v.style.display = 'block'; const av = document.getElementById('avatar-' + peerId); if (av) av.style.display = 'none'; })
-    .catch(() => {});
+  _playVideo(v, peerId);
 
   startAudioDetection(stream, 'tile-' + peerId, 'ring-' + peerId);
   _postAddTile(peerId);
+}
+
+// Robust video play with retry on autoplay-blocked
+function _playVideo(v, peerId) {
+  const av = peerId ? document.getElementById('avatar-' + peerId) : null;
+  const playPromise = v.play();
+  if (playPromise !== undefined) {
+    playPromise
+      .then(() => {
+        if (v.videoWidth > 0 || v.videoHeight > 0) {
+          v.style.display = 'block';
+          if (av) av.style.display = 'none';
+        } else {
+          // Video track connected but no dimensions yet — wait
+          v.addEventListener('loadedmetadata', () => {
+            v.style.display = 'block';
+            if (av) av.style.display = 'none';
+          }, { once: true });
+          v.style.display = 'block';
+          if (av) av.style.display = 'none';
+        }
+      })
+      .catch(() => {
+        // Autoplay blocked — show a play button overlay
+        v.style.display = 'block';
+        if (av) av.style.display = 'none';
+        const playHint = document.createElement('div');
+        playHint.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);cursor:pointer;z-index:10;font-size:2rem;';
+        playHint.textContent = '▶';
+        playHint.title = 'Tap to play';
+        const tileEl = peerId ? document.getElementById('tile-' + peerId) : v.parentElement;
+        if (tileEl) tileEl.appendChild(playHint);
+        playHint.addEventListener('click', (e) => {
+          e.stopPropagation();
+          v.play().catch(() => {});
+          playHint.remove();
+        }, { once: true });
+      });
+  } else {
+    // Legacy: just show the video
+    v.style.display = 'block';
+    if (av) av.style.display = 'none';
+  }
+}
+
+// Update tile name/role after peer meta becomes available
+function _updateTileName(peerId, name, role) {
+  const tn = document.getElementById('tilename-' + peerId);
+  if (tn) tn.textContent = name;
+  const an = document.getElementById('avname-' + peerId);
+  if (an) an.textContent = name;
+  const ring = document.getElementById('ring-' + peerId);
+  if (ring) {
+    ring.textContent = name.slice(0, 2).toUpperCase();
+    ring.style.background = role === 'host' ? 'var(--blue)' : '#3b4f8a';
+  }
+  const badge = document.getElementById('badge-' + peerId);
+  if (badge && role === 'host') { badge.textContent = 'HOST'; }
 }
 
 function removeRemoteVideoTile(peerId) {
@@ -2624,7 +2771,119 @@ function updateGrid() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// PIN / SPOTLIGHT — click a tile to pin it large, others shrink
+// FOCUS OVERLAY — click a tile to see it full-screen
+// ═══════════════════════════════════════════════════════════════════════
+let _focusPeerId = null;
+
+function openFocusOverlay(peerId) {
+  const tile = document.getElementById('tile-' + peerId);
+  if (!tile) return;
+  _focusPeerId = peerId;
+
+  const meta = _peerMeta.get(peerId) || S.participants.find(p => p.peerId === peerId);
+  const rname = (meta && meta.name) ? meta.name : 'Participant';
+  const rrole = (meta && meta.role) ? meta.role : 'student';
+
+  const wrap = document.getElementById('focusTileWrap');
+  // Clear previous content except label+close button
+  Array.from(wrap.children).forEach(c => {
+    if (c.id !== 'focusOverlayLabel' && c.id !== 'focusOverlayClose') c.remove();
+  });
+
+  // Clone video or avatar
+  const srcVideo = tile.querySelector('video');
+  const av = document.getElementById('avatar-' + peerId);
+
+  if (srcVideo && srcVideo.srcObject && srcVideo.style.display !== 'none') {
+    // Create a new video element sharing same stream
+    const fv = document.createElement('video');
+    fv.srcObject = srcVideo.srcObject;
+    fv.autoplay = true;
+    fv.playsInline = true;
+    fv.muted = false;
+    fv.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
+    fv.play().catch(() => {});
+    wrap.insertBefore(fv, document.getElementById('focusOverlayLabel'));
+  } else {
+    // Show avatar
+    const initials = rname.slice(0, 2).toUpperCase();
+    const bg = rrole === 'host' ? 'var(--blue)' : '#3b4f8a';
+    const avDiv = document.createElement('div');
+    avDiv.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;background:var(--surface);';
+    avDiv.innerHTML = '<div style="width:96px;height:96px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:#fff">' + initials + '</div>'
+      + '<div style="font-size:1rem;color:var(--text2)">' + rname + '</div>';
+    wrap.insertBefore(avDiv, document.getElementById('focusOverlayLabel'));
+  }
+
+  // Update label
+  const roleEl = document.getElementById('focusOverlayRole');
+  if (roleEl) roleEl.textContent = rrole === 'host' ? '👑 ' : '👤 ';
+  const labelEl = document.getElementById('focusOverlayLabelName');
+  if (labelEl) labelEl.textContent = rname;
+  const nameEl = document.getElementById('focusOverlayName');
+  if (nameEl) nameEl.textContent = rname + (rrole === 'host' ? ' — Host' : '');
+
+  document.getElementById('focusOverlay').classList.add('open');
+  document.addEventListener('keydown', _escCloseFocus);
+}
+
+function openFocusOverlayLocal() {
+  // Focus the local tile
+  const tile = document.getElementById('localTile');
+  if (!tile) return;
+  const wrap = document.getElementById('focusTileWrap');
+  Array.from(wrap.children).forEach(c => {
+    if (c.id !== 'focusOverlayLabel' && c.id !== 'focusOverlayClose') c.remove();
+  });
+  const srcVideo = document.getElementById('localVideo');
+  if (srcVideo && srcVideo.srcObject && srcVideo.style.display !== 'none') {
+    const fv = document.createElement('video');
+    fv.srcObject = srcVideo.srcObject;
+    fv.autoplay = true;
+    fv.playsInline = true;
+    fv.muted = true;
+    fv.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
+    fv.play().catch(() => {});
+    wrap.insertBefore(fv, document.getElementById('focusOverlayLabel'));
+  } else {
+    const avDiv = document.createElement('div');
+    avDiv.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;background:var(--surface);';
+    const initials = S.name ? S.name.slice(0, 2).toUpperCase() : 'YO';
+    avDiv.innerHTML = '<div style="width:96px;height:96px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:#fff">' + initials + '</div>'
+      + '<div style="font-size:1rem;color:var(--text2)">' + (S.name || 'You') + '</div>';
+    wrap.insertBefore(avDiv, document.getElementById('focusOverlayLabel'));
+  }
+  const roleEl = document.getElementById('focusOverlayRole');
+  if (roleEl) roleEl.textContent = S.role === 'host' ? '👑 ' : '👤 ';
+  const labelEl = document.getElementById('focusOverlayLabelName');
+  if (labelEl) labelEl.textContent = S.name || 'You';
+  const nameEl = document.getElementById('focusOverlayName');
+  if (nameEl) nameEl.textContent = (S.name || 'You') + (S.role === 'host' ? ' — Host (You)' : ' — You');
+  document.getElementById('focusOverlay').classList.add('open');
+  document.addEventListener('keydown', _escCloseFocus);
+}
+
+function closeFocusOverlay() {
+  const ov = document.getElementById('focusOverlay');
+  if (ov) ov.classList.remove('open');
+  _focusPeerId = null;
+  document.removeEventListener('keydown', _escCloseFocus);
+  // Stop any cloned video
+  const wrap = document.getElementById('focusTileWrap');
+  if (wrap) {
+    wrap.querySelectorAll('video').forEach(v => { v.srcObject = null; });
+    Array.from(wrap.children).forEach(c => {
+      if (c.id !== 'focusOverlayLabel' && c.id !== 'focusOverlayClose') c.remove();
+    });
+  }
+}
+
+function _escCloseFocus(e) {
+  if (e.key === 'Escape') closeFocusOverlay();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// PIN / SPOTLIGHT — kept for internal use (programmatic pin from student view)
 // ═══════════════════════════════════════════════════════════════════════
 let _pinnedTileId = null;
 let _spotlightStrip = null;
@@ -2676,14 +2935,9 @@ function pinTile(tileId) {
   });
 }
 
-// Add pin button when creating remote tiles (called from addRemoteVideoTile)
+// _addPinBtn kept as no-op — focus is now via overlay click
 function _addPinBtn(tile) {
-  const btn = document.createElement('button');
-  btn.className = 'pin-btn';
-  btn.textContent = '⊞';
-  btn.title = 'Pin';
-  btn.onclick = (e) => { e.stopPropagation(); pinTile(tile.id); };
-  tile.appendChild(btn);
+  // Click to focus is wired on tile creation — no separate pin button needed
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2801,10 +3055,10 @@ function handleFocusSync(tab, open) {
 // _postAddTile and _postRemoveTile defined below in AI Enhancement Engine
 // (they chain: AI stop/start + pin button + grid update)
 
-// Wire localTile pin button on DOMContentLoaded
+// Wire localTile click → focus overlay
 document.addEventListener('DOMContentLoaded', () => {
-  const existing = document.querySelector('#localTile .pin-btn');
-  if (existing) existing.onclick = (e) => { e.stopPropagation(); pinTile('localTile'); };
+  const localTile = document.getElementById('localTile');
+  if (localTile) localTile.addEventListener('click', openFocusOverlayLocal);
 });
 
 // Also register relay event in server's relay format
