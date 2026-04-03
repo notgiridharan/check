@@ -1,0 +1,329 @@
+/**
+ * LiteMeet – WebRTC Client Module
+ *
+ * Responsibilities:
+ *  1. Connect to the signalling socket server
+ *  2. Join the room and authenticate (PIN)
+ *  3. Create RTCPeerConnections for each remote peer (full-mesh)
+ *  4. Add local media tracks, handle ICE negotiation
+ *  5. Emit "peer-stream" when remote video/audio arrives
+ *  6. Relay lightweight data (whiteboard, chat, polls, etc.) via socket
+ *  7. Adapt video/audio bitrate for 4G / 3G / 2G network profiles
+ */
+
+'use strict';
+
+(function (global) {
+
+  // ── ICE servers ─────────────────────────────────────────────────────────────
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    // Public TURN (fallback for symmetric NAT)
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+  ];
+
+  // ── Bitrate caps per network profile ────────────────────────────────────────
+  const NET_PROFILES = {
+    good: { videoBps: 128_000, audioBps: 32_000, videoEnabled: true  },  // 4G
+    mid:  { videoBps:  48_000, audioBps: 16_000, videoEnabled: true  },  // 3G
+    bad:  { videoBps:       0, audioBps:  6_000, videoEnabled: false },  // 2G – audio only
+  };
+
+  // ── Main class ──────────────────────────────────────────────────────────────
+  class LiteMeetClient {
+    /**
+     * @param {object} options
+     * @param {string} options.serverUrl
+     * @param {string} options.roomId
+     * @param {string} options.name
+     * @param {string} options.role   'host' | 'student'
+     * @param {string} [options.pin]
+     */
+    constructor(options) {
+      this._opts       = options;
+      this._handlers   = {};      // event → callback
+      this._peers      = new Map(); // peerId → { pc, name, role }
+      this._localStream = null;
+      this._netProfile  = 'good';
+      this._socket      = null;
+      this._myId        = null;    // own socket.id (set after connection)
+    }
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /**
+     * Connect to socket, join room, set up WebRTC for all existing peers.
+     * @param {MediaStream|null} localStream
+     */
+    connect(localStream) {
+      this._localStream = localStream;
+      this._initSocket();
+    }
+
+    /**
+     * Send a lightweight data packet to all peers via server relay.
+     * @param {string} type
+     * @param {object} payload
+     */
+    send(type, payload = {}) {
+      if (this._socket && this._socket.connected) {
+        this._socket.emit('relay', { type, payload });
+      }
+    }
+
+    /**
+     * Change network profile – adapts bitrate on all active peer connections.
+     * @param {'good'|'mid'|'bad'} profileName
+     */
+    setNetworkProfile(profileName) {
+      if (!NET_PROFILES[profileName]) return;
+      this._netProfile = profileName;
+      for (const [, entry] of this._peers) {
+        this._applyBitrate(entry.pc, profileName);
+      }
+    }
+
+    /** Tear everything down. */
+    disconnect() {
+      for (const [peerId] of this._peers) this._closePeer(peerId);
+      if (this._socket) this._socket.disconnect();
+    }
+
+    /** Subscribe to a client event. */
+    on(event, callback)  { this._handlers[event] = callback; }
+    /** Emit a client event. */
+    _emit(event, data)   { if (this._handlers[event]) this._handlers[event](data); }
+
+    // ── Socket initialisation ─────────────────────────────────────────────────
+    _initSocket() {
+      const { serverUrl, roomId, name, role, pin = '' } = this._opts;
+
+      // io() is loaded from /socket.io/socket.io.js by the HTML
+      const socket = io(serverUrl, { transports: ['websocket', 'polling'] });
+      this._socket = socket;
+
+      // ── Lifecycle ──────────────────────────────────────────────────────────
+      socket.on('connect', () => {
+        this._myId = socket.id;
+        this._emit('connected', {});
+        // Join the room
+        socket.emit('join-room', { roomId, name, role, pin });
+      });
+
+      socket.on('disconnect', reason => {
+        this._emit('disconnected', { reason });
+      });
+
+      socket.on('connect_error', err => {
+        this._emit('error', { msg: 'Connection failed: ' + (err.message || err) });
+      });
+
+      // ── Room events ────────────────────────────────────────────────────────
+      socket.on('error', ({ msg }) => this._emit('error', { msg }));
+
+      socket.on('waiting-room', ({ msg }) => {
+        this._emit('error', { msg }); // surface to the UI as a toast
+      });
+
+      socket.on('joined', ({ role: myRole, participants, polls = [] }) => {
+        this._emit('joined', { role: myRole, participants });
+
+        // Restore any open polls
+        polls.forEach(poll => this._emit('poll-launched', poll));
+
+        // For every existing peer, WE initiate the offer (we are the newcomer)
+        participants.forEach(({ peerId, name: pName, role: pRole }) => {
+          this._createPc(peerId, pName, pRole, true /* isInitiator */);
+        });
+      });
+
+      socket.on('peer-joined-pending', ({ peerId, name: pName, role: pRole }) => {
+        this._emit('peer-joined-pending', { peerId, name: pName, role: pRole });
+        // The NEW peer will initiate offers TO us, so we just create the PC
+        this._createPc(peerId, pName, pRole, false /* wait for their offer */);
+      });
+
+      socket.on('peer-left', ({ peerId, name: pName }) => {
+        this._closePeer(peerId);
+        this._emit('peer-left', { peerId, name: pName });
+      });
+
+      socket.on('host-changed', info => this._emit('host-changed', info));
+      socket.on('role-changed', ({ role: newRole }) => {
+        // Server promoted us to host
+        this._emit('joined', { role: newRole, participants: [] });
+      });
+
+      // ── WebRTC signal forwarding ───────────────────────────────────────────
+      socket.on('webrtc-signal', async ({ fromId, type, data }) => {
+        if (type === 'offer')         await this._handleOffer(fromId, data);
+        else if (type === 'answer')   await this._handleAnswer(fromId, data);
+        else if (type === 'ice')      await this._handleIce(fromId, data);
+      });
+
+      // ── Relayed data events ────────────────────────────────────────────────
+      const RELAY_EVENTS = [
+        'wb-stroke', 'wb-clear', 'wb-undo',
+        'chat-msg',
+        'doc-share',   // host broadcasts full file (base64) to students
+        'doc-page',    // host page-change coordinate packet
+        'doc-annot',   // host annotation coordinate packet
+        'poll-launched', 'poll-update', 'poll-closed',
+        'peer-media-state', 'peer-hand', 'peer-knock',
+        'mute-all',
+        'focus-sync',
+      ];
+      RELAY_EVENTS.forEach(ev => {
+        socket.on(ev, payload => this._emit(ev, payload));
+      });
+    }
+
+    // ── RTCPeerConnection management ──────────────────────────────────────────
+
+    _createPc(peerId, peerName, peerRole, isInitiator) {
+      if (this._peers.has(peerId)) return; // already exists
+
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+      this._peers.set(peerId, { pc, name: peerName, role: peerRole });
+
+      // Add our local tracks
+      if (this._localStream) {
+        this._localStream.getTracks().forEach(track => {
+          try { pc.addTrack(track, this._localStream); } catch (e) {}
+        });
+      }
+
+      // ICE candidate → forward to peer
+      pc.onicecandidate = ({ candidate }) => {
+        if (candidate) {
+          this._signal(peerId, 'ice', candidate.toJSON());
+        }
+      };
+
+      // Connection state changes
+      pc.oniceconnectionstatechange = () => {
+        this._emit('ice-state', { peerId, state: pc.iceConnectionState });
+      };
+
+      // Remote tracks
+      pc.ontrack = ({ streams: [stream] }) => {
+        if (stream) this._emit('peer-stream', { peerId, stream });
+      };
+
+      // Negotiation needed (Chrome fires this automatically on addTrack)
+      pc.onnegotiationneeded = async () => {
+        if (!isInitiator) return; // only the initiator creates offers
+        try { await this._createOffer(peerId, pc); }
+        catch (e) { console.warn('[WebRTC] negotiationneeded error', e); }
+      };
+
+      // Apply current network profile
+      this._applyBitrateWhenReady(pc);
+
+      if (isInitiator) {
+        this._createOffer(peerId, pc).catch(e =>
+          console.warn('[WebRTC] offer error', e)
+        );
+      }
+    }
+
+    async _createOffer(peerId, pc) {
+      const offer = await pc.createOffer({ offerToReceiveVideo: true, offerToReceiveAudio: true });
+      await pc.setLocalDescription(offer);
+      this._signal(peerId, 'offer', pc.localDescription.toJSON());
+    }
+
+    async _handleOffer(fromId, sdp) {
+      let entry = this._peers.get(fromId);
+      if (!entry) {
+        // Peer joined before we processed peer-joined-pending; create PC now
+        this._createPc(fromId, 'Peer', 'student', false);
+        entry = this._peers.get(fromId);
+      }
+      const { pc } = entry;
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      this._signal(fromId, 'answer', pc.localDescription.toJSON());
+    }
+
+    async _handleAnswer(fromId, sdp) {
+      const entry = this._peers.get(fromId);
+      if (!entry || entry.pc.signalingState === 'stable') return;
+      try {
+        await entry.pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      } catch (e) { console.warn('[WebRTC] setRemoteDescription(answer)', e); }
+    }
+
+    async _handleIce(fromId, candidate) {
+      const entry = this._peers.get(fromId);
+      if (!entry) return;
+      try {
+        await entry.pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) { /* ignore late candidates */ }
+    }
+
+    _closePeer(peerId) {
+      const entry = this._peers.get(peerId);
+      if (!entry) return;
+      try { entry.pc.close(); } catch (e) {}
+      this._peers.delete(peerId);
+    }
+
+    _signal(targetId, type, data) {
+      this._socket.emit('webrtc-signal', { targetId, type, data });
+    }
+
+    // ── Bitrate adaptation ────────────────────────────────────────────────────
+
+    /** Apply bitrate as soon as senders are available. */
+    _applyBitrateWhenReady(pc) {
+      pc.addEventListener('connectionstatechange', () => {
+        if (pc.connectionState === 'connected') {
+          this._applyBitrate(pc, this._netProfile);
+        }
+      });
+    }
+
+    async _applyBitrate(pc, profileName) {
+      const profile = NET_PROFILES[profileName] || NET_PROFILES.good;
+      const senders = pc.getSenders();
+      for (const sender of senders) {
+        if (!sender.track) continue;
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings || !params.encodings.length) {
+            params.encodings = [{}];
+          }
+          if (sender.track.kind === 'video') {
+            params.encodings[0].maxBitrate = profile.videoEnabled ? profile.videoBps : 1;
+            params.encodings[0].active = profile.videoEnabled;
+          } else if (sender.track.kind === 'audio') {
+            params.encodings[0].maxBitrate = profile.audioBps;
+          }
+          await sender.setParameters(params);
+          // Pause/resume video track directly for 2G
+          if (sender.track.kind === 'video') {
+            sender.track.enabled = profile.videoEnabled;
+          }
+        } catch (e) { /* setParameters not supported in all browsers */ }
+      }
+    }
+  }
+
+  // Expose globally so the HTML can use: new LiteMeetClient({ ... })
+  global.LiteMeetClient = LiteMeetClient;
+
+})(window);
