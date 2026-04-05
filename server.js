@@ -23,7 +23,8 @@ const app    = express();
 const server = http.createServer(app);
 const io     = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 1e8, // 100MB
+  // Increase buffer to support PDF relay (base64 of 30MB PDF = ~40MB)
+  maxHttpBufferSize: 50 * 1024 * 1024,  // 50 MB
   // Helpful on slow networks – bigger ping timeout
   pingTimeout: 60000,
   pingInterval: 25000,
@@ -45,6 +46,9 @@ app.get('/', (_req, res) =>
  *   participants: Map<socketId, { name: string, role: string }>,
  *   polls      : Map<pollId,   { q, opts, votes[], total }>,
  *   knockQueue : Map<socketId, string>  // waiting-room queue { socketId → name }
+ *   sharedDocs : Map<docId, payload>    // cached doc-share payloads for late joiners
+ *   docPages   : Map<docId, number>     // current page per doc
+ *   docAnnots  : Map<docId, [pkt]>      // annotations per doc, keyed by page too
  * }>
  */
 const rooms = new Map();
@@ -187,6 +191,24 @@ io.on('connection', socket => {
       if (!room.docPages) room.docPages = new Map();
       room.docPages.set(payload.docId, payload.page);
     }
+    // Special: accumulate annotations per doc for late-joiners
+    if (type === 'doc-annot') {
+      if (!room.docAnnots) room.docAnnots = new Map();
+      const docId = payload.docId;
+      if (docId) {
+        if (payload.tool === 'clear-all') {
+          // Remove annotations for that page
+          const arr = room.docAnnots.get(docId) || [];
+          room.docAnnots.set(docId, arr.filter(a => a.page !== payload.page));
+        } else {
+          const arr = room.docAnnots.get(docId) || [];
+          arr.push(payload);
+          // Cap at 200 annotations per doc to avoid memory leak
+          if (arr.length > 200) arr.splice(0, arr.length - 200);
+          room.docAnnots.set(docId, arr);
+        }
+      }
+    }
     socket.to(roomId).emit(type, enriched);
   });
 
@@ -268,7 +290,14 @@ function _completeJoin(socket, room, roomId, name, role) {
             fromPeerId: room.hostId,
           });
         }
-      }, 1500);
+        // Replay saved annotations for this doc
+        if (room.docAnnots && room.docAnnots.has(docPayload.id)) {
+          const annots = room.docAnnots.get(docPayload.id);
+          for (const a of annots) {
+            socket.emit('doc-annot', { ...a, fromPeerId: room.hostId });
+          }
+        }
+      }, 1800);
     }
   }
 

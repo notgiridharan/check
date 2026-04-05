@@ -57,7 +57,7 @@ select.form-input option{background:var(--surface2)}
 .lobby-role{display:flex;gap:.5rem;margin-bottom:1rem}
 .role-btn{flex:1;padding:.6rem;border:1px solid var(--border2);border-radius:var(--r2);background:transparent;color:var(--text2);font-family:var(--sans);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .15s;text-align:center}
 .role-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
-.btn-join{width:100%;background:var(--blue);color:#fff;border:none;border-radius:var(--r2);padding:.8rem;font-family:var(--sans);font-size:.92rem;font-weight:600;cursor:pointer;transition:.15s;-webkit-appearance:none}
+.btn-join{width:100%;background:var(--blue);color:#fff;border:none;border-radius:var(--r2);padding:.8rem;font-family:var(--sans);font-size:.92rem;font-weight:600;cursor:pointer;transition:.15s;-webkit-appearance:none;appearance:none}
 .btn-join:active{background:var(--blue2)}
 .lobby-chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:1.25rem}
 .chip{font-size:.65rem;padding:.2rem .5rem;border-radius:20px;border:1px solid var(--border2);color:var(--text3);font-weight:500}
@@ -72,11 +72,50 @@ select.form-input option{background:var(--surface2)}
 .topbar-brand em{font-style:italic;color:var(--blue)}
 .room-pill{font-size:.68rem;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:.15rem .55rem;cursor:pointer;font-weight:500;flex-shrink:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spacer{flex:1;min-width:0}
-.net-badge{display:flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:500;padding:.2rem .5rem;border-radius:20px;border:1px solid;flex-shrink:0;white-space:nowrap}
+.net-badge{display:flex;align-items:center;gap:.3rem;font-size:.68rem;font-weight:500;padding:.2rem .5rem;border-radius:20px;border:1px solid;flex-shrink:0;white-space:nowrap;cursor:pointer;transition:.15s}
 .net-badge.good{color:var(--green);border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.06)}
 .net-badge.mid{color:var(--amber);border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.06)}
 .net-badge.bad{color:var(--red);border-color:rgba(239,68,68,.25);background:rgba(239,68,68,.06)}
-.net-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.net-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;animation:netPulse 2s ease-in-out infinite}
+@keyframes netPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.net-badge.bad .net-dot{animation:netPulse .8s ease-in-out infinite}
+/* ── NET INFO MODAL ── */
+#netModal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:600;display:none;align-items:center;justify-content:center;padding:1.25rem}
+#netModal.show{display:flex}
+.net-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:1.25rem;max-width:310px;width:100%;display:flex;flex-direction:column;gap:.75rem;animation:tIn .2s ease}
+.net-card-title{font-family:var(--serif);font-size:1.1rem;font-style:italic;color:var(--text);display:flex;align-items:center;gap:.5rem}
+.net-card-sub{font-size:.73rem;color:var(--text3);line-height:1.6;border-bottom:1px solid var(--border);padding-bottom:.65rem}
+.net-stats{display:flex;flex-direction:column;gap:.4rem}
+.net-stat-row{display:flex;align-items:center;justify-content:space-between;font-size:.76rem}
+.net-stat-lbl{color:var(--text2)}
+.net-stat-val{font-weight:600;color:var(--text)}
+.net-source-tag{font-size:.63rem;padding:.12rem .4rem;border-radius:3px;background:rgba(59,111,240,.15);color:var(--blue);font-weight:600}
+.net-profiles-grid{display:flex;flex-direction:column;gap:.35rem}
+.net-profile-row{display:flex;align-items:center;gap:.55rem;padding:.45rem .55rem;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:.12s}
+.net-profile-row.active{border-color:var(--blue);background:rgba(59,111,240,.1)}
+.net-profile-row:hover:not(.active){background:var(--surface3)}
+.np-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.np-dot.good{background:var(--green)}
+.np-dot.mid{background:var(--amber)}
+.np-dot.bad{background:var(--red)}
+.np-lbl{font-size:.78rem;font-weight:600;color:var(--text);flex:1}
+.np-detail{font-size:.65rem;color:var(--text3)}
+.np-check{font-size:.8rem;opacity:0;color:var(--blue)}
+.net-profile-row.active .np-check{opacity:1}
+.net-auto-row{display:flex;align-items:center;justify-content:space-between;padding:.4rem 0;border-top:1px solid var(--border)}
+.net-auto-lbl{font-size:.73rem;color:var(--text2)}
+.toggle-sw{position:relative;display:inline-flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.7rem;color:var(--text3)}
+.toggle-sw input{opacity:0;width:0}
+.toggle-track{width:32px;height:17px;background:var(--surface3);border-radius:20px;transition:.2s;position:relative}
+.toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:.2s}
+.toggle-sw input:checked + .toggle-track{background:var(--blue)}
+.toggle-sw input:checked + .toggle-track::after{transform:translateX(15px)}
+.net-close-btn{width:100%;padding:.55rem;border-radius:var(--r2);font-family:var(--sans);font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:.15s}
+.net-close-btn:hover{background:var(--surface2)}
+/* 2G audio-only overlay on video tiles */
+.vtile-2g-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;background:rgba(15,15,17,.88);z-index:3;pointer-events:none}
+.vtile-2g-icon{font-size:1.4rem;opacity:.7}
+.vtile-2g-txt{font-size:.65rem;color:var(--red);font-weight:600;text-align:center;letter-spacing:.04em}
 .topbar-name{font-size:.75rem;color:var(--text2);font-weight:500;flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ── MAIN ── */
@@ -84,23 +123,10 @@ select.form-input option{background:var(--surface2)}
 
 /* ── VIDEO AREA ── */
 .video-area{flex:1;display:flex;flex-direction:column;padding:.6rem;gap:.6rem;overflow:hidden;min-width:0;min-height:0}
-.video-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));grid-auto-rows:1fr;gap:.6rem;overflow:hidden;min-height:0;align-content:start}
-/* peer-strip lives outside auto-fit grid */
-.peer-strip-wrap{display:contents}
-.vtile{position:relative;background:var(--surface);border-radius:var(--r);overflow:hidden;border:1.5px solid var(--border);transition:border-color .2s,transform .2s,box-shadow .2s;min-width:0;min-height:0;aspect-ratio:16/9}
-/* PINNED tile spans full grid */
-.vtile.pinned{grid-column:1/-1;grid-row:1;aspect-ratio:16/9;z-index:2}
-.vtile.pinned-small{opacity:.85}
-.vtile:hover .pin-btn{opacity:1}
+.video-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));grid-auto-rows:1fr;gap:.6rem;overflow:hidden;min-height:0;place-content:center}
 .vtile.speaking{border-color:var(--green);box-shadow:0 0 0 2px rgba(34,197,94,.22)}
 .avatar-ring{transition:box-shadow .15s}
 .avatar-ring.audio-active{box-shadow:0 0 0 3px rgba(34,197,94,.6)}
-/* Student view: host tile is large, peer strip is a row below */
-.video-grid.student-view{display:flex;flex-direction:column}
-.video-grid.student-view .vtile.host-tile{flex:1;min-height:0;aspect-ratio:16/9}
-.video-grid.student-view .peer-strip{display:flex;flex-direction:row;gap:.5rem;height:80px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}
-.video-grid.student-view .peer-strip::-webkit-scrollbar{display:none}
-.video-grid.student-view .peer-strip .vtile{flex:0 0 112px;height:80px;aspect-ratio:unset}
 .vtile-badge.host-badge{background:rgba(245,158,11,.85)}
 .annot-owner-tag{position:absolute;bottom:2.4rem;right:.5rem;font-size:.6rem;padding:.15rem .4rem;border-radius:4px;color:#fff;z-index:10;pointer-events:none;opacity:1;transition:opacity .35s}
 /* ── NEW FEATURES ── */
@@ -244,7 +270,7 @@ canvas#docAnnotCanvas{position:absolute;top:0;left:0;display:block;touch-action:
 .polls-wrap{flex:1;overflow-y:auto;padding:.65rem;display:flex;flex-direction:column;gap:.6rem;min-height:0}
 .section-lbl{font-size:.66rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.2rem}
 .poll-create{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.65rem;display:flex;flex-direction:column;gap:.38rem}
-.poll-inp{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:var(--r3);padding:.4rem .6rem;color:var(--text);font-family:var(--sans);font-size:.8rem;outline:none;transition:border-color .15s;-webkit-appearance:none}
+.poll-inp{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:var(--r3);padding:.4rem .6rem;color:var(--text);font-family:var(--sans);font-size:.8rem;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
 .poll-inp:focus{border-color:var(--blue)}
 .poll-inp::placeholder{color:var(--text3)}
 .poll-btns{display:flex;gap:.35rem}
@@ -392,91 +418,49 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 }
 .focus-sync-badge.show{display:block}
 
-/* ── TILE CLICK HINT ── */
-.vtile{cursor:pointer}
-.vtile:hover::after{
-  content:'Click to focus';
-  position:absolute;bottom:2.4rem;left:50%;transform:translateX(-50%);
-  font-size:.6rem;color:rgba(255,255,255,.7);background:rgba(0,0,0,.55);
-  padding:.18rem .55rem;border-radius:20px;pointer-events:none;
-  white-space:nowrap;opacity:1;transition:opacity .2s;
-  z-index:5;
+/* ── PIN BUTTON on tiles ── */
+.pin-btn{
+  position:absolute;top:.35rem;right:.35rem;
+  width:24px;height:24px;border-radius:var(--r3);
+  background:rgba(0,0,0,.55);border:none;color:rgba(255,255,255,.8);
+  cursor:pointer;font-size:.7rem;
+  opacity:0;transition:opacity .15s;z-index:3;
 }
 
-/* ── FOCUS OVERLAY — full-screen focused tile ── */
-#focusOverlay{
-  position:fixed;inset:0;z-index:400;
-  background:rgba(0,0,0,.92);
-  backdrop-filter:blur(8px);
-  display:none;flex-direction:column;
-  align-items:center;justify-content:center;
-  animation:tIn .18s ease;
+
+.vtile{
+  position:relative;background:var(--surface);border-radius:var(--r);overflow:hidden;
+  border:1.5px solid var(--border);transition:border-color .2s,transform .2s,box-shadow .2s;
+  min-width:0;min-height:0;cursor:pointer;
 }
-#focusOverlay.open{display:flex}
-#focusTileWrap{
-  position:relative;
-  width:min(92vw, calc(92vh * 16 / 9));
-  max-width:1200px;
-  aspect-ratio:16/9;
-  border-radius:var(--r);
-  overflow:hidden;
-  box-shadow:0 24px 80px rgba(0,0,0,.8);
-  background:var(--surface);
+.vtile.pinned-overlay {
+  position: fixed;
+  inset: 1.5rem;
+  z-index: 1000;
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  border-radius: var(--r);
+  box-shadow: 0 15px 50px rgba(0,0,0,0.85);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
 }
-#focusTileWrap video{
-  width:100%;height:100%;object-fit:cover;display:block;background:#000;
+#pinBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 12, 0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
-#focusTileWrap .vtile-avatar{
-  position:absolute;inset:0;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  gap:1rem;
-  background:var(--surface);
-}
-#focusTileWrap .vtile-avatar .avatar-ring{
-  width:96px;height:96px;font-size:2rem;
-}
-#focusTileWrap .vtile-avatar .avatar-name{
-  font-size:1rem;color:var(--text2);
-}
-#focusOverlayLabel{
-  position:absolute;top:1rem;left:1rem;
-  display:flex;align-items:center;gap:.5rem;
-  background:rgba(0,0,0,.6);border-radius:20px;
-  padding:.35rem .85rem;
-  font-size:.85rem;font-weight:600;color:#fff;
-  backdrop-filter:blur(4px);
-}
-#focusOverlayClose{
-  position:absolute;top:1rem;right:1rem;
-  width:36px;height:36px;border-radius:50%;
-  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
-  color:#fff;cursor:pointer;font-size:1rem;
-  display:flex;align-items:center;justify-content:center;
-  transition:.15s;
-}
-#focusOverlayClose:hover{background:rgba(239,68,68,.7);border-color:var(--red);}
-#focusOverlayName{
-  margin-top:.75rem;
-  font-size:1rem;font-weight:600;color:var(--text2);
-  letter-spacing:.02em;
+#pinBackdrop.show {
+  display: block;
+  opacity: 1;
 }
 
-/* grid with pinned tile: unpin others to a bottom strip */
-.video-grid.has-pinned{
-  display:flex;flex-direction:column;
-}
-.video-grid.has-pinned .vtile.pinned{
-  flex:1;min-height:0;aspect-ratio:unset;
-}
-.video-grid.has-pinned .vtile:not(.pinned):not(.peer-strip){
-  flex:0 0 72px;
-}
-.spotlight-strip{
-  display:flex;gap:.5rem;height:72px;flex-shrink:0;overflow-x:auto;scrollbar-width:none;
-}
-.spotlight-strip::-webkit-scrollbar{display:none}
-.spotlight-strip .vtile{flex:0 0 100px;height:72px;aspect-ratio:unset}
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
@@ -555,7 +539,7 @@ input[type=range].ai-sl::-webkit-slider-thumb{
     <div class="topbar-brand">Lite<em>Meet</em></div>
     <div class="room-pill" id="roomPill" onclick="copyRoom()">ROOM-XXXX</div>
     <div class="spacer"></div>
-    <div class="net-badge good" id="netBadge"><div class="net-dot"></div><span id="netLabel">4G · 28ms</span></div>
+    <div class="net-badge good" id="netBadge" onclick="openNetModal()" title="Click for network details"><div class="net-dot"></div><span id="netLabel">4G · —ms</span></div>
     <div class="topbar-name" id="topName">—</div>
     <div class="session-timer" id="sessionTimer" onclick="toggleTimerMode()" title="Click to switch countdown">00:00</div>
     <button class="mob-sidebar-btn" id="mobSidebarBtn" onclick="toggleMobSidebar()">☰</button>
@@ -565,7 +549,7 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 
     <div class="video-area">
       <div class="video-grid" id="videoGrid">
-        <div class="vtile" id="localTile">
+        <div class="vtile" id="localTile" onclick="pinTile(this.id)" title="Click to focus">
           <div class="vtile-avatar" id="localAvatarWrap">
             <div class="avatar-ring" id="localAvatarRing">YO</div>
             <div style="font-size:.68rem;color:var(--text3);margin-top:.3rem" id="localAvatarName">You</div>
@@ -577,7 +561,6 @@ input[type=range].ai-sl::-webkit-slider-thumb{
             <span class="vtile-mute" id="localMuteIcon">🎤</span>
           </div>
         </div>
-        <div class="peer-strip" id="peerStrip"></div>
       </div>
       <div class="caption-bar">
         <div class="caption-dot"></div>
@@ -749,8 +732,9 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 
       <div class="spanel" id="tab-people">
         <div class="hand-queue" id="handQueue"></div>
-        <div id="hostControls" style="display:none;padding:.5rem .65rem;border-bottom:1px solid var(--border);flex-shrink:0">
+        <div id="hostControls" style="display:none;padding:.5rem .65rem;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:.4rem">
           <button class="btn-mute-all" onclick="muteAll()">🔇 Mute All Students</button>
+          <button class="btn-mute-all" id="btnFocusHost" onclick="toggleHostFocus()" style="border-color:var(--blue);color:var(--blue)">🎯 Focus Host: OFF</button>
         </div>
         <div class="people-wrap" id="peopleWrap">
           <div class="people-empty" id="peopleEmpty">
@@ -844,6 +828,52 @@ input[type=range].ai-sl::-webkit-slider-thumb{
   </div>
 </div>
 
+<!-- ── NET INFO MODAL ── -->
+<div id="netModal">
+  <div class="net-card">
+    <div class="net-card-title">📡 Network Mode</div>
+    <div class="net-card-sub" id="netCardSub">Detecting your connection quality…</div>
+    <div class="net-stats" id="netStats">
+      <div class="net-stat-row"><span class="net-stat-lbl">Effective type</span><span class="net-stat-val" id="nsStat-type">—</span></div>
+      <div class="net-stat-row"><span class="net-stat-lbl">RTT estimate</span><span class="net-stat-val" id="nsStat-rtt">—</span></div>
+      <div class="net-stat-row"><span class="net-stat-lbl">Downlink</span><span class="net-stat-val" id="nsStat-dl">—</span></div>
+      <div class="net-stat-row"><span class="net-stat-lbl">Detection source</span><span class="net-source-tag" id="nsStat-src">API</span></div>
+    </div>
+    <div>
+      <div style="font-size:.66rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">Quality Profile</div>
+      <div class="net-profiles-grid">
+        <div class="net-profile-row" id="np-good" onclick="manualSetProfile('good')">
+          <div class="np-dot good"></div>
+          <span class="np-lbl">4G / WiFi</span>
+          <span class="np-detail">Video 128kbps · Audio 32kbps</span>
+          <span class="np-check">✓</span>
+        </div>
+        <div class="net-profile-row" id="np-mid" onclick="manualSetProfile('mid')">
+          <div class="np-dot mid"></div>
+          <span class="np-lbl">3G</span>
+          <span class="np-detail">Video 48kbps · Audio 16kbps</span>
+          <span class="np-check">✓</span>
+        </div>
+        <div class="net-profile-row" id="np-bad" onclick="manualSetProfile('bad')">
+          <div class="np-dot bad"></div>
+          <span class="np-lbl">2G / EDGE</span>
+          <span class="np-detail">Audio-only Opus 6kbps</span>
+          <span class="np-check">✓</span>
+        </div>
+      </div>
+    </div>
+    <div class="net-auto-row">
+      <span class="net-auto-lbl">Auto-detect network quality</span>
+      <label class="toggle-sw">
+        <input type="checkbox" id="netAutoToggle" checked onchange="toggleNetAuto(this.checked)">
+        <div class="toggle-track"></div>
+        <span id="netAutoLabel">On</span>
+      </label>
+    </div>
+    <button class="net-close-btn" onclick="closeNetModal()">Close</button>
+  </div>
+</div>
+
 <div id="offlineBanner">No connection — reconnecting…</div>
 <div id="installBanner">
   <div class="install-text">Add LiteMeet to home screen</div>
@@ -864,16 +894,6 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 </div>
 <div class="toast-stack" id="toastStack"></div>
 
-<!-- ── FOCUS OVERLAY — click a tile to expand it full screen ── -->
-<div id="focusOverlay" onclick="closeFocusOverlay()">
-  <div id="focusTileWrap" onclick="event.stopPropagation()">
-    <!-- content injected by JS -->
-    <div id="focusOverlayLabel"><span id="focusOverlayRole"></span><span id="focusOverlayLabelName">...</span></div>
-    <button id="focusOverlayClose" onclick="closeFocusOverlay()" title="Close (Esc)">✕</button>
-  </div>
-  <div id="focusOverlayName"></div>
-</div>
-
 <script>
 // ─────────────────────────────────────────────
 // PDF.JS WORKER
@@ -887,7 +907,7 @@ if(typeof pdfjsLib!=='undefined'){
 // ─────────────────────────────────────────────
 const S={
   name:'',roomId:'',role:'host',lang:'en',
-  micOn:true,camOn:true,screenOn:false,aiOn:false,
+  micOn:true,camOn:true,screenOn:false,aiOn:false,hostOnlyView:false,
   localStream:null,
   recOn:false,mediaRecorder:null,recChunks:[],recInterval:null,recSec:0,
   netIdx:0,ping:28,
@@ -950,11 +970,8 @@ function initRoom(){
   updateDocUI(); // set up host/student doc view
   // wire localTile pin button
   setTimeout(() => {
-    const lt = document.getElementById('localTile');
-    if (lt && !lt._focusWired) {
-      lt.addEventListener('click', openFocusOverlayLocal);
-      lt._focusWired = true;
-    }
+    const pb = document.querySelector('#localTile .pin-btn');
+    if (pb) pb.onclick = (e) => { e.stopPropagation(); pinTile('localTile'); };
     updateGrid();
   }, 100);
 }
@@ -1233,23 +1250,239 @@ function toggleMobSidebar(){
   document.getElementById('sidebar').classList.toggle('mob-open');
 }
 
-// ─────────────────────────────────────────────
-// NETWORK SIM
-// ─────────────────────────────────────────────
-const netP=[
-  {cls:'good',label:'4G',kbps:128},
-  {cls:'mid',label:'3G',kbps:48},
-  {cls:'bad',label:'2G',kbps:6},
-];
-function startNetSim(){
-  setInterval(()=>{
-    S.ping=Math.max(10,S.ping+((Math.random()-.5)*10|0));
-    const p=netP[S.netIdx];
-    const b=document.getElementById('netBadge');
-    b.className='net-badge '+p.cls;
-    document.getElementById('netLabel').textContent=p.label+' · '+S.ping+'ms';
-  },3500);
+// ═══════════════════════════════════════════════════════════════════════
+// NETWORK QUALITY DETECTION
+// ─────────────────────────────────────────────────────────────────────
+// Sources (in priority order):
+//  1. navigator.connection (Network Information API) — effectiveType, rtt, downlink
+//  2. WebRTC getStats() — actual bitrate / RTT on active peer connections
+//  3. Periodic XHR probe — estimated round-trip time to server
+// The detected profile is applied to the net badge and to all WebRTC
+// peer connections via LM.setNetworkProfile().
+// ═══════════════════════════════════════════════════════════════════════
+
+const NET_PROFILES_UI = {
+  good: { cls:'good', label:'4G', kbps:128, audioBps:32000 },
+  mid:  { cls:'mid',  label:'3G', kbps:48,  audioBps:16000 },
+  bad:  { cls:'bad',  label:'2G', kbps:6,   audioBps:6000  },
+};
+
+const NET = {
+  autoDetect: true,
+  currentProfile: 'good',
+  rtt: null,          // ms
+  downlink: null,     // Mbps
+  effectiveType: null,// '4g'|'3g'|'2g'|'slow-2g'
+  source: 'unknown',  // 'API'|'WebRTC'|'Probe'
+  _probeInterval: null,
+  _statsInterval: null,
+};
+
+// ── Classify connection to profile name ──────────────────────────────
+function _netClassify() {
+  // Navigator Connection API (most reliable)
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    NET.effectiveType = conn.effectiveType || null;
+    if (conn.rtt !== undefined && conn.rtt > 0) NET.rtt = conn.rtt;
+    if (conn.downlink !== undefined && conn.downlink > 0) NET.downlink = conn.downlink;
+    NET.source = 'API';
+  }
+
+  // Map effectiveType → profile
+  let profile = 'good';
+  const et = NET.effectiveType;
+  if (et === 'slow-2g' || et === '2g') profile = 'bad';
+  else if (et === '3g') profile = 'mid';
+  else if (et === '4g' || et === 'wifi') profile = 'good';
+  else {
+    // No effectiveType — fall back to RTT thresholds
+    if (NET.rtt !== null) {
+      if (NET.rtt > 800) profile = 'bad';
+      else if (NET.rtt > 300) profile = 'mid';
+      else profile = 'good';
+    } else if (NET.downlink !== null) {
+      if (NET.downlink < 0.15) profile = 'bad';
+      else if (NET.downlink < 1) profile = 'mid';
+      else profile = 'good';
+    }
+  }
+  return profile;
 }
+
+// ── Apply a profile (badge + WebRTC bitrate) ─────────────────────────
+function _applyNetProfile(profile, force) {
+  if (profile === NET.currentProfile && !force) return;
+  const prev = NET.currentProfile;
+  NET.currentProfile = profile;
+  const p = NET_PROFILES_UI[profile];
+  S.netIdx = ['good','mid','bad'].indexOf(profile);
+
+  // Update badge
+  const badge = document.getElementById('netBadge');
+  const lbl   = document.getElementById('netLabel');
+  if (badge) badge.className = 'net-badge ' + p.cls;
+  if (lbl)   lbl.textContent = p.label + (NET.rtt ? ' · ' + NET.rtt + 'ms' : '');
+
+  // Apply to WebRTC
+  if (LM) LM.setNetworkProfile(profile);
+
+  // Apply video-track enable/disable for 2G locally
+  if (S.localStream) {
+    const videoEnabled = (profile !== 'bad');
+    S.localStream.getVideoTracks().forEach(t => { t.enabled = videoEnabled; });
+    // If cam was on but 2G kicked in, show avatar
+    if (!videoEnabled && S.camOn) {
+      document.getElementById('localVideo').style.display = 'none';
+      document.getElementById('localAvatarWrap').style.display = 'flex';
+    } else if (videoEnabled && S.camOn && S.localStream) {
+      document.getElementById('localVideo').style.display = 'block';
+      document.getElementById('localAvatarWrap').style.display = 'none';
+    }
+  }
+
+  // Show/hide 2G overlay on all remote tiles
+  document.querySelectorAll('.vtile').forEach(tile => {
+    if (tile.id === 'localTile') return;
+    let ov = tile.querySelector('.vtile-2g-overlay');
+    if (profile === 'bad') {
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.className = 'vtile-2g-overlay';
+        ov.innerHTML = '<div class="vtile-2g-icon">🔇</div><div class="vtile-2g-txt">2G · Audio only<br>6 kbps</div>';
+        tile.appendChild(ov);
+      }
+    } else {
+      if (ov) ov.remove();
+    }
+  });
+
+  // Toast only on transitions
+  if (profile !== prev) {
+    if (profile === 'bad') {
+      toast('2G detected — audio-only mode · 6kbps Opus', '⚠️');
+    } else if (profile === 'mid' && prev === 'bad') {
+      toast('3G detected — compressed video 48kbps', '📡');
+    } else if (profile === 'mid' && prev === 'good') {
+      toast('Signal weak — switching to 3G mode · 48kbps', '📡');
+    } else if (profile === 'good' && prev !== 'good') {
+      toast('Good signal — full quality restored · 128kbps', '✅');
+    }
+  }
+
+  // Update modal if open
+  _updateNetModal();
+}
+
+// ── Periodic check using the API (fires immediately + every 4s) ───────
+function _netCheck() {
+  if (!NET.autoDetect) return;
+  const profile = _netClassify();
+  _applyNetProfile(profile);
+}
+
+// ── Lightweight probe: fetch a 1-byte resource and measure RTT ────────
+let _probeActive = false;
+function _netProbe() {
+  if (_probeActive) return;
+  // Only probe if API gave us no RTT
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn && conn.rtt > 0) return; // API is authoritative
+  _probeActive = true;
+  const t0 = performance.now();
+  fetch(window.LITEMEET_SERVER_URL
+    ? (window.LITEMEET_SERVER_URL + '/socket.io/?EIO=4&t=' + t0)
+    : 'data:text/plain,x',
+    { method: 'HEAD', cache: 'no-store' }
+  ).then(() => {
+    NET.rtt = Math.round((performance.now() - t0) / 2); // half round-trip
+    NET.source = 'Probe';
+    if (NET.autoDetect) {
+      const profile = _netClassify();
+      _applyNetProfile(profile);
+    }
+  }).catch(() => {}).finally(() => { _probeActive = false; });
+}
+
+// ── WebRTC getStats: monitor actual bitrate on connected peers ─────────
+function _netStatsCheck() {
+  if (!NET.autoDetect || !LM || !LM._peers || !LM._peers.size) return;
+  for (const [, entry] of LM._peers) {
+    const pc = entry.pc;
+    if (!pc || pc.connectionState !== 'connected') continue;
+    pc.getStats(null).then(stats => {
+      let totalBitsReceived = 0;
+      let rtt = null;
+      let prevEntry = pc._prevStats;
+      let prevTime = pc._prevStatsTime || 0;
+      const now = performance.now();
+      const dt = now - prevTime;
+
+      stats.forEach(report => {
+        if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+          if (prevEntry && prevEntry.has(report.id)) {
+            const prev = prevEntry.get(report.id);
+            const bits = (report.bytesReceived - (prev.bytesReceived || 0)) * 8;
+            if (dt > 0) totalBitsReceived += bits / (dt / 1000);
+          }
+        }
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          if (report.currentRoundTripTime !== undefined && report.currentRoundTripTime > 0) {
+            rtt = Math.round(report.currentRoundTripTime * 1000);
+          }
+        }
+      });
+
+      // Store snapshot for next diff
+      pc._prevStats = new Map([...stats].map(r => [r.id, r]));
+      pc._prevStatsTime = now;
+
+      if (rtt !== null) { NET.rtt = rtt; NET.source = 'WebRTC'; }
+
+      // Classify by incoming bitrate
+      let profile = null;
+      if (totalBitsReceived > 0) {
+        if (totalBitsReceived < 8000)        profile = 'bad';  // <8kbps
+        else if (totalBitsReceived < 60000)  profile = 'mid';  // <60kbps
+        else                                  profile = 'good';
+      } else if (rtt !== null) {
+        if (rtt > 800)      profile = 'bad';
+        else if (rtt > 300) profile = 'mid';
+        else                profile = 'good';
+      }
+
+      if (profile && NET.autoDetect) _applyNetProfile(profile);
+    }).catch(() => {});
+    break; // Only need one peer for signal quality
+  }
+}
+
+// ── Start net monitoring ──────────────────────────────────────────────
+function startNetMonitor() {
+  // Immediate check
+  _netCheck();
+  _netProbe();
+
+  // Listen for API change events
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (conn) {
+    conn.addEventListener('change', () => {
+      if (NET.autoDetect) _netCheck();
+    });
+  }
+
+  // API polling (every 5s)
+  NET._probeInterval = setInterval(() => {
+    _netCheck();
+    _netProbe();
+  }, 5000);
+
+  // WebRTC stats (every 8s)
+  NET._statsInterval = setInterval(_netStatsCheck, 8000);
+}
+
+// Alias for old startNetSim call
+function startNetSim() { startNetMonitor(); }
 
 // ─────────────────────────────────────────────
 // SUBTITLES (Bhashini sim)
@@ -1488,21 +1721,27 @@ function docUpload(inp) {
   const file = inp.files[0]; if (!file) return;
   inp.value = '';
 
-  // Size guard — base64 of ~5MB is ~6.7MB. Warn but don't block.
+  // Size guard — base64 of ~5MB is ~6.7MB, Socket.io default buffer is 1MB.
+  // We set maxHttpBufferSize=50MB on the server. Warn user for very large files.
   if (file.size > 8 * 1024 * 1024) {
-    toast('File is large (>8 MB) — may be slow on 2G', '⚠️');
+    toast('File is large (>8 MB) — sharing may be slow', '⚠️');
   }
 
+  const mimeType = file.type || _guessType(file.name);
+
+  toast('Reading file…', '📄');
   const reader = new FileReader();
   reader.onload = (ev) => {
     const b64 = ev.target.result; // data:...;base64,...
     const docId = Date.now().toString();
+    // Create blob URL for local host rendering (avoids data-URI fetch issues)
+    const blobUrl = URL.createObjectURL(file);
     const docMeta = {
       id: docId,
       name: file.name,
-      type: file.type.toLowerCase() || _guessType(file.name),
-      b64,                        // full data URI
-      url: URL.createObjectURL(file),
+      type: mimeType,
+      b64,
+      url: blobUrl,  // host uses the original file's blob URL
     };
     // Store locally
     S.docs.push(docMeta);
@@ -1511,18 +1750,42 @@ function docUpload(inp) {
 
     // Broadcast to students — they receive the full file data
     if (window.LM) {
-      window.LM.send('doc-share', { id: docId, name: file.name, type: docMeta.type, b64 });
+      window.LM.send('doc-share', { id: docId, name: file.name, type: mimeType, b64 });
+      toast('Sharing: ' + file.name, '📄');
+    } else {
+      toast('Loaded locally (start server to share with others)', '📄');
     }
-    toast('Sharing: ' + file.name, '📄');
   };
+  reader.onerror = () => toast('File read error', '❌');
   reader.readAsDataURL(file);
 }
 
 function _guessType(name) {
-  const ext = name.split('.').pop().toLowerCase();
+  const ext = (name.split('.').pop() || '').toLowerCase();
   if (ext === 'pdf') return 'application/pdf';
-  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return 'image/' + ext;
+  if (['png','jpg','jpeg','gif','webp'].includes(ext)) return 'image/' + (ext === 'jpg' ? 'jpeg' : ext);
   return 'application/octet-stream';
+}
+
+// ── Parse a data URI → { mime, bytes } without fetch() —————————————————
+function _dataURItoBytes(dataURI) {
+  // dataURI = "data:application/pdf;base64,JVBERi0..."
+  const comma = dataURI.indexOf(',');
+  if (comma < 0) throw new Error('Invalid data URI');
+  const header = dataURI.slice(0, comma);   // "data:application/pdf;base64"
+  const raw    = dataURI.slice(comma + 1);  // the base64 string
+  const isB64  = header.includes('base64');
+  const mime   = (header.split(':')[1] || '').split(';')[0] || 'application/octet-stream';
+  if (isB64) {
+    const bin = atob(raw);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return { mime, bytes };
+  }
+  // URL-encoded fallback
+  const decoded = decodeURIComponent(raw);
+  const enc     = new TextEncoder();
+  return { mime, bytes: enc.encode(decoded) };
 }
 
 // ── STUDENT: Receive doc-share ────────────────────────────────────────
@@ -1531,18 +1794,35 @@ function receiveDocShare(payload) {
   // Avoid duplicates
   if (S.docs.find(d => d.id === id)) return;
 
-  // Convert base64 data URI to a blob URL for local rendering
-  const url = b64; // We can use data URI directly for small files
-  const docMeta = { id, name, type, b64, url };
+  // Decode the data URI into a Blob so PDF.js / <img> can load it reliably
+  // (fetch(data:...) is blocked in some browser security contexts)
+  let blobUrl = null;
+  try {
+    const { mime, bytes } = _dataURItoBytes(b64);
+    const blob = new Blob([bytes], { type: mime || type || 'application/octet-stream' });
+    blobUrl = URL.createObjectURL(blob);
+  } catch(e) {
+    // Last-resort fallback: use the data URI directly
+    blobUrl = b64;
+  }
+
+  const docMeta = { id, name, type: type || _guessType(name), b64, url: blobUrl };
   S.docs.push(docMeta);
   renderDocList();
-  _loadDocLocal(S.docs.length - 1);
+  _loadDocLocal(S.docs.length - 1).then(() => {
+    // If host already changed to a different page before this doc arrived, jump to it
+    if (S._pendingDocPage && S._pendingDocPage[id] !== undefined) {
+      S.pdfPage = S._pendingDocPage[id];
+      delete S._pendingDocPage[id];
+      renderPdfPage().then(() => updatePgCtrStudent());
+    }
+  });
 
   // Auto-switch to docs tab
   const docsBtn = document.querySelector('.snav-btn[onclick*="docs"]');
   if (docsBtn) switchTab('docs', docsBtn);
 
-  toast('Host shared: ' + name + ' — tap ⬇ to download', '📄');
+  toast('📄 Host shared: ' + name + ' — tap ⧂ to open Docs', '📄');
   sysMsg('Host shared a document: ' + name);
 }
 
@@ -1555,26 +1835,40 @@ async function _loadDocLocal(idx) {
 
   document.getElementById('docsEmpty').style.display = 'none';
   document.getElementById('docAnnotBar').classList.add('visible');
+  S.annotations = [];
 
-  const isPdf = doc.type.includes('pdf') || doc.name.toLowerCase().endsWith('.pdf');
+  const isPdf = (doc.type && doc.type.includes('pdf')) || doc.name.toLowerCase().endsWith('.pdf');
   if (isPdf) {
-    if (typeof pdfjsLib === 'undefined') { toast('PDF.js loading…', '⚠️'); return; }
+    if (typeof pdfjsLib === 'undefined') { toast('PDF.js loading… please wait', '⚠️'); return; }
     try {
-      // Fetch the URL (works for blob: URLs and data: URIs)
-      const res  = await fetch(doc.url);
-      const data = await res.arrayBuffer();
-      S.pdfDoc   = await pdfjsLib.getDocument({ data }).promise;
+      let pdfData;
+      if (doc.url && doc.url.startsWith('blob:')) {
+        // Fast path: blob URL — just fetch() it (same-origin, no CORS issue)
+        const res  = await fetch(doc.url);
+        pdfData = await res.arrayBuffer();
+      } else if (doc.b64 && doc.b64.startsWith('data:')) {
+        // Decode base64 without fetch() to avoid data-URI CORS blocks
+        const { bytes } = _dataURItoBytes(doc.b64);
+        pdfData = bytes.buffer;
+      } else if (doc.url) {
+        const res  = await fetch(doc.url);
+        pdfData = await res.arrayBuffer();
+      } else {
+        throw new Error('No PDF data available');
+      }
+      S.pdfDoc   = await pdfjsLib.getDocument({ data: pdfData }).promise;
       S.pdfPage  = 1;
       S.pdfTotal = S.pdfDoc.numPages;
       updatePgCtr();
       await renderPdfPage();
-    } catch(e) { toast('PDF error: ' + e.message, '❌'); }
+    } catch(e) { toast('PDF error: ' + e.message, '❌'); console.error('[Docs]', e); }
   } else {
     S.pdfDoc = null; S.pdfPage = 1; S.pdfTotal = 1;
     updatePgCtr();
     const img = new Image();
     img.onload = () => drawImgToDoc(img);
-    img.src = doc.url;
+    // Prefer blob URL; fall back to data URI
+    img.src = doc.url || doc.b64;
   }
 }
 
@@ -1584,17 +1878,18 @@ function renderDocList() {
   list.style.display = S.docs.length ? 'block' : 'none';
   list.innerHTML = S.docs.map((d, i) =>
     '<div class="doc-item' + (i === S.activeDocIdx ? ' active' : '') + '" onclick="' +
-      (S.role === 'host' ? 'loadDoc(' + i + ')' : '') + '">' +
-      '<span class="doc-icon">' + (d.type.includes('pdf') ? '📕' : '🖼') + '</span>' +
+      (S.role === 'host' ? 'loadDoc(' + i + ')' : 'loadDoc(' + i + ')') + '">' +
+      '<span class="doc-icon">' + ((d.type && d.type.includes('pdf')) || d.name.toLowerCase().endsWith('.pdf') ? '📕' : '🖼') + '</span>' +
       '<span class="doc-name">' + d.name + '</span>' +
       '<span class="doc-dl" onclick="event.stopPropagation();docDownload(' + i + ')" title="Download">⬇</span>' +
     '</div>'
   ).join('');
 }
 
-// ── loadDoc (host only — changes active doc) ──────────────────────────
+// ── loadDoc (all users — changes active doc in their local view) ────────
 function loadDoc(idx) {
-  if (S.role !== 'host') return;
+  // Both host and student can switch their local view to any received doc.
+  // Only the host broadcasts page-change commands to students.
   _loadDocLocal(idx);
 }
 
@@ -1659,6 +1954,7 @@ async function docPage(dir) {
   const np = S.pdfPage + dir;
   if (np < 1 || np > S.pdfTotal) return;
   S.pdfPage = np;
+  S.annotations = [];               // clear per-page annotations
   await renderPdfPage();
   // Broadcast page change — tiny packet ~35 bytes
   if (window.LM) {
@@ -1676,6 +1972,7 @@ async function docStudentPage(dir) {
   const np = S.pdfPage + dir;
   if (np < 1 || np > S.pdfTotal) return;
   S.pdfPage = np;
+  S.annotations = [];
   await renderPdfPage();
   updatePgCtrStudent();
 }
@@ -1828,9 +2125,8 @@ function drawArrowAt(x1,y1,x2,y2) {
 function redrawAnnotations() {
   if (!annotCtx) return;
   const ac = document.getElementById('docAnnotCanvas');
-  const activeDocId = (S.docs[S.activeDocIdx] || {}).id;
   annotCtx.clearRect(0, 0, ac.width, ac.height);
-  S.annotations.filter(a => (a.page === S.pdfPage || !a.page) && (a.docId === activeDocId || !a.docId))
+  S.annotations.filter(a => a.page === S.pdfPage || !a.page)
                 .forEach(a => drawAnnotation(a, true));
 }
 function drawAnnotation(a, normalised) {
@@ -1867,7 +2163,7 @@ function annotColor(c,el) {
 }
 function annotClear() {
   if (S.role !== 'host') return;
-  S.annotations = S.annotations.filter(a => a.page !== S.pdfPage);
+  S.annotations = [];
   if (annotCtx) { const ac = document.getElementById('docAnnotCanvas'); annotCtx.clearRect(0,0,ac.width,ac.height); }
   // Broadcast clear-annotations event
   if (window.LM) window.LM.send('doc-annot', { tool:'clear-all', page:S.pdfPage, docId:(S.docs[S.activeDocIdx]||{}).id });
@@ -1881,10 +2177,26 @@ function docDownload(idx) {
   const d = S.docs[idx];
   if (!d) return;
   const a = document.createElement('a');
-  // For data URIs, download directly
-  a.href = d.url || d.b64;
+  // Prefer blob URL (reliable for large files), fall back to data URI
+  if (d.url && (d.url.startsWith('blob:') || d.url.startsWith('data:'))) {
+    a.href = d.url;
+  } else if (d.b64) {
+    // Build a fresh blob URL from the stored base64 so download works
+    try {
+      const { mime, bytes } = _dataURItoBytes(d.b64);
+      const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+      a.href = URL.createObjectURL(blob);
+    } catch(e) {
+      a.href = d.b64;
+    }
+  } else {
+    toast('No download data available', '⚠️');
+    return;
+  }
   a.download = d.name;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   toast('Downloading: ' + d.name, '⬇');
 }
 initAnnotCanvas();
@@ -2029,35 +2341,21 @@ function stopAudioDetection(tileId) {
 // ROLE LAYOUT
 // ═══════════════════════════════════════════════════════
 function applyRoleLayout() {
-  const grid = document.getElementById('videoGrid');
-  const localTile = document.getElementById('localTile');
-  const peerStrip = document.getElementById('peerStrip');
-  if (!grid || !localTile || !peerStrip) return;
-  if (S.role === 'student') {
-    grid.classList.add('student-view');
-    if (!peerStrip.contains(localTile)) peerStrip.appendChild(localTile);
-  } else {
-    grid.classList.remove('student-view');
-    if (!grid.contains(localTile)) grid.insertBefore(localTile, peerStrip);
-  }
+  updateGrid();
 }
 
 function placeRemoteTile(tile, peerRole) {
   const grid = document.getElementById('videoGrid');
-  const peerStrip = document.getElementById('peerStrip');
-  if (!grid || !peerStrip) return;
-  if (S.role === 'student') {
-    if (peerRole === 'host') {
-      tile.classList.add('host-tile');
-      const badge = tile.querySelector('.vtile-badge');
-      if (badge) { badge.classList.add('host-badge'); badge.textContent = 'HOST'; }
-      grid.insertBefore(tile, peerStrip);
-    } else {
-      peerStrip.appendChild(tile);
-    }
+  if (!grid) return;
+  if (peerRole === 'host') {
+    tile.classList.add('host-tile');
+    const badge = tile.querySelector('.vtile-badge');
+    if (badge) { badge.classList.add('host-badge'); badge.textContent = 'HOST'; }
+    grid.insertBefore(tile, grid.firstChild); // Keep host early in grid
   } else {
-    grid.insertBefore(tile, peerStrip);
+    grid.appendChild(tile);
   }
+  updateGrid();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2335,15 +2633,26 @@ function handleMuteAll() {
 // ═══════════════════════════════════════════════════════
 function updateHostControls() {
   const hc = document.getElementById('hostControls');
-  if (hc) hc.style.display = S.role === 'host' ? 'block' : 'none';
+  if (hc) hc.style.display = S.role === 'host' ? 'flex' : 'none';
+}
+
+function toggleHostFocus() {
+  if (S.role !== 'host') return;
+  S.hostOnlyView = !S.hostOnlyView;
+  const btn = document.getElementById('btnFocusHost');
+  if (btn) {
+    btn.textContent = S.hostOnlyView ? '🎯 Focus Host: ON' : '🎯 Focus Host: OFF';
+    btn.style.background = S.hostOnlyView ? 'rgba(59,111,240,.1)' : 'transparent';
+  }
+  if (window.LM) LM.send('host-only-view', { enabled: S.hostOnlyView });
+  updateGrid(); // update my own view just in case (though I'm host)
+  toast(S.hostOnlyView ? 'Students video hidden' : 'Grid restored', '🎯');
 }
 
 // ═══════════════════════════════════════════════════════
 // WEBRTC INTEGRATION
 // ═══════════════════════════════════════════════════════
 let LM = null;
-// Map of peerId → { name, role } populated from signalling
-const _peerMeta = new Map();
 
 function initWebRTC() {
   if (window._socketIoMissing || window._webrtcClientMissing || !window.LITEMEET_SERVER_URL) {
@@ -2366,20 +2675,18 @@ function initWebRTC() {
     applyRoleLayout();
     updateHostControls();
     updateDocUI(); // refresh host/student doc controls after role confirmed
-    // Populate _peerMeta for all existing participants
-    participants.forEach(({ peerId, name: pName, role: pRole }) => {
-      if (pName) _peerMeta.set(peerId, { name: pName, role: pRole });
-      addParticipant(pName, pRole, peerId);
-    });
     sysMsg('Connected. ' + participants.length + ' participant(s) in room.');
     toast('Room joined · WebRTC ready', '🔐');
+    // Immediately show existing participants
+    participants.forEach(p => {
+      addParticipant(p.name, p.role, p.peerId);
+      addRemoteVideoTile(p.peerId, null);
+    });
   });
 
   LM.on('peer-joined-pending', ({ peerId, name, role }) => {
-    _peerMeta.set(peerId, { name, role });  // store so peer-stream can use it
     addParticipant(name, role, peerId);
-    // If their tile already exists with placeholder name, update it
-    _updateTileName(peerId, name, role);
+    addRemoteVideoTile(peerId, null);
     sysMsg(name + ' joined.');
     toast(name + ' joined', '👋');
   });
@@ -2408,19 +2715,34 @@ function initWebRTC() {
 
   // ── Document sync ───────────────────────────────────────────────────────
   LM.on('doc-share', payload => {
-    // Students receive full doc data and render it locally
-    if (S.role !== 'host') receiveDocShare(payload);
+    // Receive doc if we don't have it yet (works for students AND
+    // a promoted-host who joined before host shared the doc)
+    const alreadyHave = S.docs.find(d => d.id === payload.id);
+    if (!alreadyHave) receiveDocShare(payload);
   });
   LM.on('doc-page', ({ page, docId }) => {
     // Host-driven page change — students must follow
     if (S.role !== 'host') {
       const docIdx = S.docs.findIndex(d => d.id === docId);
       if (docIdx >= 0) {
-        if (S.activeDocIdx !== docIdx) { S.activeDocIdx = docIdx; renderDocList(); }
+        if (S.activeDocIdx !== docIdx) {
+          S.activeDocIdx = docIdx;
+          renderDocList();
+        }
         S.pdfPage = page;
+        S.annotations = [];
+        // Auto-switch to Docs tab so student sees the change
+        const docsBtn = document.querySelector('.snav-btn[onclick*="docs"]');
+        if (docsBtn && !document.getElementById('tab-docs').classList.contains('active')) {
+          switchTab('docs', docsBtn);
+        }
         renderPdfPage().then(() => {
           updatePgCtrStudent();
         });
+      } else {
+        // Doc not received yet — store pending page to jump when doc arrives
+        if (!S._pendingDocPage) S._pendingDocPage = {};
+        S._pendingDocPage[docId] = page;
       }
     }
   });
@@ -2434,6 +2756,7 @@ function initWebRTC() {
       }
     }
   });
+
 
   LM.on('poll-launched', poll => {
     if (!S.polls.find(p => p.id === poll.id)) { S.polls.push({ ...poll, done: false }); renderPoll(poll); }
@@ -2458,6 +2781,14 @@ function initWebRTC() {
   LM.on('mute-all', () => handleMuteAll());
 
   LM.on('mute-all', () => handleMuteAll());
+  
+  // ── Host focus ──
+  LM.on('host-only-view', ({ enabled }) => {
+    S.hostOnlyView = enabled;
+    updateGrid();
+    toast(enabled ? 'Host locked grid view' : 'Grid unlocked', '🎯');
+  });
+
   // ── Focus sync (theater mode) ──
   LM.on('focus-sync', ({ tab, open }) => handleFocusSync(tab, open));
 
@@ -2466,108 +2797,65 @@ function initWebRTC() {
 
 // ── Remote video tiles ────────────────────────────────
 function addRemoteVideoTile(peerId, stream) {
-  // Lookup name/role — first from dedicated map, then from participants list
-  const meta = _peerMeta.get(peerId) || S.participants.find(p => p.peerId === peerId);
-  const rname = (meta && meta.name) ? meta.name : 'Participant';
-  const rrole = (meta && meta.role) ? meta.role : 'student';
-
   let tile = document.getElementById('tile-' + peerId);
   if (tile) {
-    // Tile already exists — just update the stream
-    const v = tile.querySelector('video');
-    if (v) {
-      v.srcObject = stream;
-      _playVideo(v, peerId);
+    if (stream) {
+      const v = tile.querySelector('video');
+      if (v) { 
+        v.srcObject = stream; 
+        v.muted = false;
+        v.play().catch(() => {});
+        const hasVideo = stream.getVideoTracks().length > 0;
+        if (hasVideo) {
+          v.style.display = 'block';
+          const av = document.getElementById('avatar-' + peerId);
+          if (av) av.style.display = 'none';
+        }
+      }
+      startAudioDetection(stream, 'tile-' + peerId, 'ring-' + peerId);
     }
     return;
   }
+  const found = S.participants.find(p => p.peerId === peerId);
+  const rname = found ? found.name : 'Peer';
+  const rrole = found ? found.role : 'student';
 
   tile = document.createElement('div');
   tile.className = 'vtile';
   tile.id = 'tile-' + peerId;
+  tile.onclick = function() { pinTile(this.id); };
   tile.title = 'Click to focus';
   tile.innerHTML =
     '<div class="vtile-avatar" id="avatar-' + peerId + '">'
-    + '<div class="avatar-ring" id="ring-' + peerId + '" style="background:' + (rrole === 'host' ? 'var(--blue)' : '#3b4f8a') + '">' + rname.slice(0, 2).toUpperCase() + '</div>'
-    + '<div style="font-size:.68rem;color:var(--text3);margin-top:.3rem" id="avname-' + peerId + '">' + rname + '</div>'
+    + '<div class="avatar-ring" id="ring-' + peerId + '" style="background:' + (rrole === 'host' ? 'var(--blue)' : 'var(--surface3)') + '">' + rname.slice(0, 2).toUpperCase() + '</div>'
+    + '<div style="font-size:.68rem;color:var(--text3);margin-top:.3rem">' + rname + '</div>'
     + '</div>'
-    + '<video id="vid-' + peerId + '" autoplay playsinline webkit-playsinline style="width:100%;height:100%;object-fit:cover;display:none"></video>'
+    + '<video id="vid-' + peerId + '" autoplay playsinline webkit-playsinline style="display:none;width:100%;height:100%;object-fit:cover"></video>'
     + '<div class="vtile-label">'
-    + '<span class="vtile-name" id="tilename-' + peerId + '">' + rname + '</span>'
-    + '<span class="vtile-badge" id="badge-' + peerId + '">' + (rrole === 'host' ? 'HOST' : 'LIVE') + '</span>'
+    + '<span class="vtile-name">' + rname + '</span>'
+    + '<span class="vtile-badge" id="badge-' + peerId + '">' + (rrole === 'host' ? 'HOST' : 'HD') + '</span>'
     + '<span class="vtile-mute" id="mute-' + peerId + '">🎤</span>'
     + '</div>';
 
-  // Click on tile → open focus overlay
-  tile.addEventListener('click', () => openFocusOverlay(peerId));
-
   placeRemoteTile(tile, rrole);
 
-  const v = tile.querySelector('video');
-  v.srcObject = stream;
-  v.muted = false;
-  _playVideo(v, peerId);
+  if (stream) {
+    const v = tile.querySelector('video');
+    v.srcObject = stream;
+    v.muted = false;
+    v.play().catch(() => {});
+    
+    // Only reveal video if there's an actual video track, otherwise it displays black
+    const hasVideo = stream.getVideoTracks().length > 0;
+    if (hasVideo) {
+      v.style.display = 'block';
+      const av = document.getElementById('avatar-' + peerId);
+      if (av) av.style.display = 'none';
+    }
 
-  startAudioDetection(stream, 'tile-' + peerId, 'ring-' + peerId);
+    startAudioDetection(stream, 'tile-' + peerId, 'ring-' + peerId);
+  }
   _postAddTile(peerId);
-}
-
-// Robust video play with retry on autoplay-blocked
-function _playVideo(v, peerId) {
-  const av = peerId ? document.getElementById('avatar-' + peerId) : null;
-  const playPromise = v.play();
-  if (playPromise !== undefined) {
-    playPromise
-      .then(() => {
-        if (v.videoWidth > 0 || v.videoHeight > 0) {
-          v.style.display = 'block';
-          if (av) av.style.display = 'none';
-        } else {
-          // Video track connected but no dimensions yet — wait
-          v.addEventListener('loadedmetadata', () => {
-            v.style.display = 'block';
-            if (av) av.style.display = 'none';
-          }, { once: true });
-          v.style.display = 'block';
-          if (av) av.style.display = 'none';
-        }
-      })
-      .catch(() => {
-        // Autoplay blocked — show a play button overlay
-        v.style.display = 'block';
-        if (av) av.style.display = 'none';
-        const playHint = document.createElement('div');
-        playHint.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);cursor:pointer;z-index:10;font-size:2rem;';
-        playHint.textContent = '▶';
-        playHint.title = 'Tap to play';
-        const tileEl = peerId ? document.getElementById('tile-' + peerId) : v.parentElement;
-        if (tileEl) tileEl.appendChild(playHint);
-        playHint.addEventListener('click', (e) => {
-          e.stopPropagation();
-          v.play().catch(() => {});
-          playHint.remove();
-        }, { once: true });
-      });
-  } else {
-    // Legacy: just show the video
-    v.style.display = 'block';
-    if (av) av.style.display = 'none';
-  }
-}
-
-// Update tile name/role after peer meta becomes available
-function _updateTileName(peerId, name, role) {
-  const tn = document.getElementById('tilename-' + peerId);
-  if (tn) tn.textContent = name;
-  const an = document.getElementById('avname-' + peerId);
-  if (an) an.textContent = name;
-  const ring = document.getElementById('ring-' + peerId);
-  if (ring) {
-    ring.textContent = name.slice(0, 2).toUpperCase();
-    ring.style.background = role === 'host' ? 'var(--blue)' : '#3b4f8a';
-  }
-  const badge = document.getElementById('badge-' + peerId);
-  if (badge && role === 'host') { badge.textContent = 'HOST'; }
 }
 
 function removeRemoteVideoTile(peerId) {
@@ -2587,13 +2875,19 @@ function updateTileBadge(peerId, status) {
 function updateTileMuteIcon(peerId, micOn, camOn) {
   const icon = document.getElementById('mute-' + peerId);
   if (icon) icon.textContent = micOn ? '🎤' : '🔇';
-  if (camOn === false) {
+  // Note: camOn might be undefined if only mic state is sent
+  if (camOn === false || camOn === true) {
     const tile = document.getElementById('tile-' + peerId);
     if (tile) {
       const v = tile.querySelector('video');
-      if (v) v.style.display = 'none';
       const av = document.getElementById('avatar-' + peerId);
-      if (av) av.style.display = 'flex';
+      if (camOn === false) {
+        if (v) v.style.display = 'none';
+        if (av) av.style.display = 'flex';
+      } else {
+        if (v) v.style.display = 'block';
+        if (av) av.style.display = 'none';
+      }
     }
   }
 }
@@ -2615,7 +2909,7 @@ function markTileHandRaised(peerId, raised) {
 
 // ── Participants ──────────────────────────────────────
 function addParticipant(name, role, peerId) {
-  if (!S.participants.find(p => p.name === name)) {
+  if (!S.participants.find(p => p.peerId === peerId)) {
     S.participants.push({ name, role, peerId: peerId || null, id: Date.now() });
     renderPeople();
   }
@@ -2709,13 +3003,77 @@ function votePoll(id, idx) {
   else toast('Vote recorded · 42 bytes', '✅');
 }
 function simulateNet() {
-  S.netIdx = (S.netIdx + 1) % netP.length;
-  const p = netP[S.netIdx];
-  if (LM) LM.setNetworkProfile(p.cls);
-  toast('Network: ' + p.label + ' · ' + p.kbps + 'kbps', p.cls === 'bad' ? '⚠️' : '📡');
-  if (p.cls === 'bad') toast('Video paused — audio-only mode', '📵');
-  if (p.cls === 'good') toast('Full quality restored', '✅');
+  // Note: button now opens net details modal. Long-press still cycles.
+  openNetModal();
 }
+
+// ── Net Modal ────────────────────────────────────────────────────────
+function openNetModal() {
+  _updateNetModal();
+  document.getElementById('netModal').classList.add('show');
+}
+function closeNetModal() {
+  document.getElementById('netModal').classList.remove('show');
+}
+function _updateNetModal() {
+  const profile = NET.currentProfile;
+  const p = NET_PROFILES_UI[profile] || NET_PROFILES_UI.good;
+  // Stats rows
+  const et = NET.effectiveType || '—';
+  const rtt = NET.rtt !== null ? NET.rtt + ' ms' : '—';
+  const dl = NET.downlink !== null ? NET.downlink.toFixed(2) + ' Mbps' : '—';
+  const src = NET.source || '—';
+  const statType = document.getElementById('nsStat-type');
+  const statRtt  = document.getElementById('nsStat-rtt');
+  const statDl   = document.getElementById('nsStat-dl');
+  const statSrc  = document.getElementById('nsStat-src');
+  if (statType) statType.textContent = et;
+  if (statRtt)  statRtt.textContent  = rtt;
+  if (statDl)   statDl.textContent   = dl;
+  if (statSrc)  statSrc.textContent  = src;
+  // Sub description
+  const sub = document.getElementById('netCardSub');
+  if (sub) {
+    const descs = {
+      good: 'Strong connection. Full HD video at up to 128 kbps with 32 kbps Opus audio.',
+      mid:  'Moderate connection. Compressed video at 48 kbps with 16 kbps audio to reduce buffering.',
+      bad:  'Weak connection (2G/EDGE). Video paused — Opus voice codec at 6 kbps for uninterrupted audio.',
+    };
+    sub.textContent = descs[profile];
+  }
+  // Profile rows
+  ['good','mid','bad'].forEach(pr => {
+    const row = document.getElementById('np-' + pr);
+    if (row) row.classList.toggle('active', pr === profile);
+  });
+  // Auto toggle
+  const tog = document.getElementById('netAutoToggle');
+  const lbl = document.getElementById('netAutoLabel');
+  if (tog) tog.checked = NET.autoDetect;
+  if (lbl) lbl.textContent = NET.autoDetect ? 'On' : 'Off';
+}
+function manualSetProfile(profile) {
+  NET.autoDetect = false;
+  const tog = document.getElementById('netAutoToggle');
+  const lbl = document.getElementById('netAutoLabel');
+  if (tog) tog.checked = false;
+  if (lbl) lbl.textContent = 'Off';
+  _applyNetProfile(profile, true);
+  const p = NET_PROFILES_UI[profile];
+  toast('Manual: ' + p.label + ' · ' + p.kbps + 'kbps video', '📡');
+}
+function toggleNetAuto(on) {
+  NET.autoDetect = on;
+  const lbl = document.getElementById('netAutoLabel');
+  if (lbl) lbl.textContent = on ? 'On' : 'Off';
+  if (on) { _netCheck(); toast('Auto-detect enabled', '📡'); }
+  else toast('Manual mode — tap a profile to switch', 'ℹ️');
+}
+// Close modal on backdrop click
+document.addEventListener('click', e => {
+  const modal = document.getElementById('netModal');
+  if (modal && modal.classList.contains('show') && e.target === modal) closeNetModal();
+});
 function endCall() {
   if (S.recOn) toggleRec();
   stopCamera();
@@ -2752,192 +3110,107 @@ function toast(msg, icon) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// FLEXIBLE GRID — update grid column count on tile count change
+// FLEXIBLE GRID — Enforce Max 3 Tiles & Host-Only Mode
 // ═══════════════════════════════════════════════════════════════════════
 function updateGrid() {
   const grid = document.getElementById('videoGrid');
   if (!grid) return;
-  // Don't touch if student-view or has-pinned; those have their own layout
-  if (grid.classList.contains('student-view') || grid.classList.contains('has-pinned')) return;
-  const tiles = grid.querySelectorAll('.vtile:not(.peer-strip)');
-  const n = tiles.length;
-  // Responsive column count: 1 col for 1 tile, 2 for 2-4, 3 for 5-6, etc.
+  
+  const allTiles = Array.from(grid.querySelectorAll('.vtile'));
+  
+  // Sort tiles to prioritize Host tiles, then Local tile, then others
+  allTiles.sort((a, b) => {
+    const isHostA = a.classList.contains('host-tile') || (a.id === 'localTile' && S.role === 'host');
+    const isHostB = b.classList.contains('host-tile') || (b.id === 'localTile' && S.role === 'host');
+    if (isHostA && !isHostB) return -1;
+    if (!isHostA && isHostB) return 1;
+    if (a.id === 'localTile') return -1;
+    if (b.id === 'localTile') return 1;
+    return 0;
+  });
+
+  let visibleCount = 0;
+  allTiles.forEach(t => {
+    // Determine visibility
+    let isVisible = true;
+
+    if (S.role === 'student' && S.hostOnlyView) {
+      // In host-only view, hide all non-host remote tiles
+      const isHostTile = t.classList.contains('host-tile') || (t.id === 'localTile' && S.role === 'host');
+      if (!isHostTile && t.id !== 'localTile') {
+        isVisible = false;
+      }
+    }
+
+    if (isVisible) {
+      if (visibleCount < 3) {
+        t.style.display = 'block';
+        visibleCount++;
+      } else {
+        t.style.display = 'none';
+      }
+    } else {
+      t.style.display = 'none';
+    }
+  });
+
+  // Responsive column count based on visible tiles
   let cols;
-  if (n <= 1) cols = '1fr';
-  else if (n <= 4) cols = 'repeat(2, 1fr)';
-  else if (n <= 6) cols = 'repeat(3, 1fr)';
+  if (visibleCount <= 1) cols = '1fr';
+  else if (visibleCount <= 4) cols = 'repeat(2, 1fr)';
   else cols = 'repeat(auto-fit, minmax(180px, 1fr))';
   grid.style.gridTemplateColumns = cols;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// FOCUS OVERLAY — click a tile to see it full-screen
-// ═══════════════════════════════════════════════════════════════════════
-let _focusPeerId = null;
-
-function openFocusOverlay(peerId) {
-  const tile = document.getElementById('tile-' + peerId);
-  if (!tile) return;
-  _focusPeerId = peerId;
-
-  const meta = _peerMeta.get(peerId) || S.participants.find(p => p.peerId === peerId);
-  const rname = (meta && meta.name) ? meta.name : 'Participant';
-  const rrole = (meta && meta.role) ? meta.role : 'student';
-
-  const wrap = document.getElementById('focusTileWrap');
-  // Clear previous content except label+close button
-  Array.from(wrap.children).forEach(c => {
-    if (c.id !== 'focusOverlayLabel' && c.id !== 'focusOverlayClose') c.remove();
-  });
-
-  // Clone video or avatar
-  const srcVideo = tile.querySelector('video');
-  const av = document.getElementById('avatar-' + peerId);
-
-  if (srcVideo && srcVideo.srcObject && srcVideo.style.display !== 'none') {
-    // Create a new video element sharing same stream
-    const fv = document.createElement('video');
-    fv.srcObject = srcVideo.srcObject;
-    fv.autoplay = true;
-    fv.playsInline = true;
-    fv.muted = false;
-    fv.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
-    fv.play().catch(() => {});
-    wrap.insertBefore(fv, document.getElementById('focusOverlayLabel'));
-  } else {
-    // Show avatar
-    const initials = rname.slice(0, 2).toUpperCase();
-    const bg = rrole === 'host' ? 'var(--blue)' : '#3b4f8a';
-    const avDiv = document.createElement('div');
-    avDiv.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;background:var(--surface);';
-    avDiv.innerHTML = '<div style="width:96px;height:96px;border-radius:50%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:#fff">' + initials + '</div>'
-      + '<div style="font-size:1rem;color:var(--text2)">' + rname + '</div>';
-    wrap.insertBefore(avDiv, document.getElementById('focusOverlayLabel'));
-  }
-
-  // Update label
-  const roleEl = document.getElementById('focusOverlayRole');
-  if (roleEl) roleEl.textContent = rrole === 'host' ? '👑 ' : '👤 ';
-  const labelEl = document.getElementById('focusOverlayLabelName');
-  if (labelEl) labelEl.textContent = rname;
-  const nameEl = document.getElementById('focusOverlayName');
-  if (nameEl) nameEl.textContent = rname + (rrole === 'host' ? ' — Host' : '');
-
-  document.getElementById('focusOverlay').classList.add('open');
-  document.addEventListener('keydown', _escCloseFocus);
-}
-
-function openFocusOverlayLocal() {
-  // Focus the local tile
-  const tile = document.getElementById('localTile');
-  if (!tile) return;
-  const wrap = document.getElementById('focusTileWrap');
-  Array.from(wrap.children).forEach(c => {
-    if (c.id !== 'focusOverlayLabel' && c.id !== 'focusOverlayClose') c.remove();
-  });
-  const srcVideo = document.getElementById('localVideo');
-  if (srcVideo && srcVideo.srcObject && srcVideo.style.display !== 'none') {
-    const fv = document.createElement('video');
-    fv.srcObject = srcVideo.srcObject;
-    fv.autoplay = true;
-    fv.playsInline = true;
-    fv.muted = true;
-    fv.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block;';
-    fv.play().catch(() => {});
-    wrap.insertBefore(fv, document.getElementById('focusOverlayLabel'));
-  } else {
-    const avDiv = document.createElement('div');
-    avDiv.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;background:var(--surface);';
-    const initials = S.name ? S.name.slice(0, 2).toUpperCase() : 'YO';
-    avDiv.innerHTML = '<div style="width:96px;height:96px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;color:#fff">' + initials + '</div>'
-      + '<div style="font-size:1rem;color:var(--text2)">' + (S.name || 'You') + '</div>';
-    wrap.insertBefore(avDiv, document.getElementById('focusOverlayLabel'));
-  }
-  const roleEl = document.getElementById('focusOverlayRole');
-  if (roleEl) roleEl.textContent = S.role === 'host' ? '👑 ' : '👤 ';
-  const labelEl = document.getElementById('focusOverlayLabelName');
-  if (labelEl) labelEl.textContent = S.name || 'You';
-  const nameEl = document.getElementById('focusOverlayName');
-  if (nameEl) nameEl.textContent = (S.name || 'You') + (S.role === 'host' ? ' — Host (You)' : ' — You');
-  document.getElementById('focusOverlay').classList.add('open');
-  document.addEventListener('keydown', _escCloseFocus);
-}
-
-function closeFocusOverlay() {
-  const ov = document.getElementById('focusOverlay');
-  if (ov) ov.classList.remove('open');
-  _focusPeerId = null;
-  document.removeEventListener('keydown', _escCloseFocus);
-  // Stop any cloned video
-  const wrap = document.getElementById('focusTileWrap');
-  if (wrap) {
-    wrap.querySelectorAll('video').forEach(v => { v.srcObject = null; });
-    Array.from(wrap.children).forEach(c => {
-      if (c.id !== 'focusOverlayLabel' && c.id !== 'focusOverlayClose') c.remove();
-    });
-  }
-}
-
-function _escCloseFocus(e) {
-  if (e.key === 'Escape') closeFocusOverlay();
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// PIN / SPOTLIGHT — kept for internal use (programmatic pin from student view)
+// PIN / SPOTLIGHT — Full viewport overlay pinning
 // ═══════════════════════════════════════════════════════════════════════
 let _pinnedTileId = null;
-let _spotlightStrip = null;
 
 function pinTile(tileId) {
-  const grid = document.getElementById('videoGrid');
-  if (!grid) return;
+  const tile = document.getElementById(tileId);
+  if (!tile) return;
+  
+  const bd = document.getElementById('pinBackdrop') || _createPinBackdrop();
 
   if (_pinnedTileId === tileId) {
-    // Unpin
+    // Unpin current
     _pinnedTileId = null;
-    grid.classList.remove('has-pinned');
-    // Move tiles back from spotlight strip to main grid
-    if (_spotlightStrip) {
-      Array.from(_spotlightStrip.querySelectorAll('.vtile')).forEach(t => grid.insertBefore(t, _spotlightStrip));
-      _spotlightStrip.remove();
-      _spotlightStrip = null;
-    }
-    grid.querySelectorAll('.vtile').forEach(t => { t.classList.remove('pinned'); t.querySelector('.pin-btn') && (t.querySelector('.pin-btn').textContent = '⊞'); });
-    grid.style.gridTemplateColumns = '';
-    updateGrid();
+    tile.classList.remove('pinned-overlay');
+    bd.classList.remove('show');
+    setTimeout(() => { if (!_pinnedTileId) bd.style.display = 'none'; }, 300);
     return;
   }
 
+  // Unpin existing if pinning a new one directly
+  if (_pinnedTileId) {
+    const oldTile = document.getElementById(_pinnedTileId);
+    if (oldTile) oldTile.classList.remove('pinned-overlay');
+  }
+
   _pinnedTileId = tileId;
-  grid.classList.add('has-pinned');
-
-  // Remove existing spotlight strip
-  if (_spotlightStrip) { _spotlightStrip.remove(); _spotlightStrip = null; }
-
-  // Create strip for non-pinned tiles
-  _spotlightStrip = document.createElement('div');
-  _spotlightStrip.className = 'spotlight-strip';
-  grid.appendChild(_spotlightStrip);
-
-  // Assign pinned/not-pinned classes and move non-pinned to strip
-  grid.querySelectorAll('.vtile').forEach(t => {
-    if (t === _spotlightStrip) return;
-    const pb = t.querySelector('.pin-btn');
-    if (t.id === tileId) {
-      t.classList.add('pinned');
-      if (pb) pb.textContent = '⊟';
-      grid.insertBefore(t, _spotlightStrip);
-    } else {
-      t.classList.remove('pinned');
-      if (pb) pb.textContent = '⊞';
-      _spotlightStrip.appendChild(t);
-    }
-  });
+  tile.classList.add('pinned-overlay');
+  bd.style.display = 'block';
+  // Allow display to apply before fading in
+  setTimeout(() => bd.classList.add('show'), 10);
 }
 
-// _addPinBtn kept as no-op — focus is now via overlay click
+function _createPinBackdrop() {
+  const bd = document.createElement('div');
+  bd.id = 'pinBackdrop';
+  bd.onclick = () => { if (_pinnedTileId) pinTile(_pinnedTileId); };
+  document.body.appendChild(bd);
+  return bd;
+}
+
+// Add pin button when creating remote tiles (called from addRemoteVideoTile)
 function _addPinBtn(tile) {
-  // Click to focus is wired on tile creation — no separate pin button needed
+  const btn = document.createElement('button');
+  btn.className = 'pin-btn';
+  btn.textContent = '⊞';
+  btn.title = 'Pin';
+  btn.onclick = (e) => { e.stopPropagation(); pinTile(tile.id); };
+  tile.appendChild(btn);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -3055,10 +3328,10 @@ function handleFocusSync(tab, open) {
 // _postAddTile and _postRemoveTile defined below in AI Enhancement Engine
 // (they chain: AI stop/start + pin button + grid update)
 
-// Wire localTile click → focus overlay
+// Wire localTile pin button on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-  const localTile = document.getElementById('localTile');
-  if (localTile) localTile.addEventListener('click', openFocusOverlayLocal);
+  const existing = document.querySelector('#localTile .pin-btn');
+  if (existing) existing.onclick = (e) => { e.stopPropagation(); pinTile('localTile'); };
 });
 
 // Also register relay event in server's relay format

@@ -34,10 +34,12 @@
   ];
 
   // ── Bitrate caps per network profile ────────────────────────────────────────
+  // videoBps=1 for 'bad' because maxBitrate=0 is treated as "no limit" in some
+  // browsers. Setting active=false + track.enabled=false reliably disables video.
   const NET_PROFILES = {
-    good: { videoBps: 128_000, audioBps: 32_000, videoEnabled: true  },  // 4G
-    mid:  { videoBps:  48_000, audioBps: 16_000, videoEnabled: true  },  // 3G
-    bad:  { videoBps:       0, audioBps:  6_000, videoEnabled: false },  // 2G – audio only
+    good: { videoBps: 128_000, audioBps: 32_000, videoEnabled: true,  label:'4G' },  // 4G / WiFi
+    mid:  { videoBps:  48_000, audioBps: 16_000, videoEnabled: true,  label:'3G' },  // 3G compressed
+    bad:  { videoBps:       1, audioBps:  6_000, videoEnabled: false, label:'2G' },  // 2G – Opus voice 6kbps
   };
 
   // ── Main class ──────────────────────────────────────────────────────────────
@@ -249,7 +251,7 @@
       let entry = this._peers.get(fromId);
       if (!entry) {
         // Peer joined before we processed peer-joined-pending; create PC now
-        this._createPc(fromId, '', 'student', false);
+        this._createPc(fromId, 'Peer', 'student', false);
         entry = this._peers.get(fromId);
       }
       const { pc } = entry;
@@ -307,18 +309,34 @@
           if (!params.encodings || !params.encodings.length) {
             params.encodings = [{}];
           }
+          const enc = params.encodings[0];
+
           if (sender.track.kind === 'video') {
-            params.encodings[0].maxBitrate = profile.videoEnabled ? profile.videoBps : 1;
-            params.encodings[0].active = profile.videoEnabled;
+            // For 2G: set 1 bps (minimum non-zero) and deactivate encoding
+            enc.maxBitrate = profile.videoEnabled ? profile.videoBps : 1;
+            enc.active     = profile.videoEnabled;
+            // Disable local video track so no frames are captured/encoded at all
+            sender.track.enabled = profile.videoEnabled;
+
+            // Also add scaleResolutionDownBy for 3G to save more bandwidth
+            if (profileName === 'mid') {
+              enc.scaleResolutionDownBy = 2; // 360p from 720p source
+            } else if (profile.videoEnabled) {
+              enc.scaleResolutionDownBy = 1; // full res for 4G
+            }
           } else if (sender.track.kind === 'audio') {
-            params.encodings[0].maxBitrate = profile.audioBps;
+            enc.maxBitrate = profile.audioBps;
+            // In 2G mode, keep audio active but at minimum bitrate for voice
+            enc.active = true;
           }
+
           await sender.setParameters(params);
-          // Pause/resume video track directly for 2G
+        } catch (e) {
+          // setParameters not supported in all browsers — try track.enabled fallback
           if (sender.track.kind === 'video') {
             sender.track.enabled = profile.videoEnabled;
           }
-        } catch (e) { /* setParameters not supported in all browsers */ }
+        }
       }
     }
   }
