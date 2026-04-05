@@ -339,6 +339,28 @@
         }
       }
     }
+
+    /**
+     * Replace the local video track for all connected peers
+     * @param {MediaStreamTrack|null} newTrack
+     */
+    async replaceVideoTrack(newTrack) {
+      if (!this._peers) return;
+      const promises = [];
+      for (const [, entry] of this._peers) {
+        if (!entry.pc) continue;
+        const senders = entry.pc.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          promises.push(videoSender.replaceTrack(newTrack).catch(e => {}));
+        } else if (newTrack) {
+          try {
+            entry.pc.addTrack(newTrack, this._localStream || new MediaStream([newTrack]));
+          } catch(e) {}
+        }
+      }
+      await Promise.all(promises);
+    }
   }
 
   // Expose globally so the HTML can use: new LiteMeetClient({ ... })

@@ -1190,6 +1190,7 @@ function toggleMic(){
   btn.classList.toggle('off',!S.micOn);
   btn.innerHTML=(S.micOn?'🎤':'🔇')+'<span class="cbtn-lbl">Mic</span>';
   document.getElementById('localMuteIcon').textContent=S.micOn?'🎤':'🔇';
+  if(LM) LM.send('peer-media-state', { micOn: S.micOn, camOn: S.camOn, screenOn: S.screenOn });
   toast(S.micOn?'Mic on':'Mic muted',S.micOn?'🎤':'🔇');
 }
 
@@ -1205,6 +1206,7 @@ function toggleCam(){
   document.getElementById('localAvatarWrap').style.display=S.camOn&&S.localStream?'none':'flex';
   document.getElementById('camBtn').classList.toggle('off',!S.camOn);
   document.getElementById('camBtn').innerHTML=(S.camOn?'📷':'🚫')+'<span class="cbtn-lbl">Cam</span>';
+  if(LM) LM.send('peer-media-state', { micOn: S.micOn, camOn: S.camOn, screenOn: S.screenOn });
   toast(S.camOn?'Camera on':'Camera off',S.camOn?'📷':'🚫');
 }
 
@@ -1217,12 +1219,20 @@ async function toggleScreen(){
       document.getElementById('localVideo').srcObject=s;
       document.getElementById('localVideo').style.display='block';
       document.getElementById('localAvatarWrap').style.display='none';
+      if(LM) {
+        LM.replaceVideoTrack(s.getVideoTracks()[0]);
+        LM.send('peer-media-state', { micOn: S.micOn, camOn: S.camOn, screenOn: true });
+      }
       s.getVideoTracks()[0].onended=()=>{
         S.screenOn=false;
         btn.classList.remove('off');
         btn.innerHTML='🖥<span class="cbtn-lbl">Screen</span>';
         if(S.localStream&&S.camOn){document.getElementById('localVideo').srcObject=S.localStream;}
         else{document.getElementById('localVideo').style.display='none';document.getElementById('localAvatarWrap').style.display='flex';}
+        if(LM) {
+          LM.replaceVideoTrack(S.localStream && S.camOn ? S.localStream.getVideoTracks()[0] : null);
+          LM.send('peer-media-state', { micOn: S.micOn, camOn: S.camOn, screenOn: false });
+        }
       };
       btn.classList.add('off');
       btn.innerHTML='⏹<span class="cbtn-lbl">Stop</span>';
@@ -1233,6 +1243,10 @@ async function toggleScreen(){
     btn.innerHTML='🖥<span class="cbtn-lbl">Screen</span>';
     if(S.localStream&&S.camOn){document.getElementById('localVideo').srcObject=S.localStream;}
     else{document.getElementById('localVideo').style.display='none';document.getElementById('localAvatarWrap').style.display='flex';}
+    if(LM) {
+      LM.replaceVideoTrack(S.localStream && S.camOn ? S.localStream.getVideoTracks()[0] : null);
+      LM.send('peer-media-state', { micOn: S.micOn, camOn: S.camOn, screenOn: false });
+    }
     toast('Screen share stopped','🖥');
   }
 }
@@ -2705,7 +2719,7 @@ function initWebRTC() {
   });
 
   LM.on('ice-state', ({ peerId, state }) => {
-    if (state === 'connected') updateTileBadge(peerId, 'live');
+    if (state === 'connected') updateTileBadge(peerId, 'reset');
     if (state === 'failed') updateTileBadge(peerId, 'retry');
   });
 
@@ -2770,7 +2784,13 @@ function initWebRTC() {
   });
 
   LM.on('chat-msg', ({ sender, text }) => { if (sender !== S.name) addMsg(sender, text, false); });
-  LM.on('peer-media-state', ({ fromPeerId, micOn, camOn }) => updateTileMuteIcon(fromPeerId, micOn, camOn));
+  LM.on('peer-media-state', ({ fromPeerId, micOn, camOn, screenOn }) => {
+    updateTileMuteIcon(fromPeerId, micOn, camOn);
+    if (screenOn !== undefined) {
+      if (screenOn) updateTileBadge(fromPeerId, 'live');
+      else updateTileBadge(fromPeerId, 'reset');
+    }
+  });
 
   LM.on('peer-hand', ({ fromPeerId, raised }) => {
     const found = S.participants.find(p => p.peerId === fromPeerId);
@@ -2869,7 +2889,13 @@ function updateTileBadge(peerId, status) {
   const b = document.getElementById('badge-' + peerId);
   if (!b) return;
   if (status === 'live') { b.textContent = 'LIVE'; b.style.background = 'rgba(34,197,94,.75)'; }
-  if (status === 'retry') { b.textContent = 'RETRY'; b.style.background = 'rgba(245,158,11,.75)'; }
+  else if (status === 'retry') { b.textContent = 'RETRY'; b.style.background = 'rgba(245,158,11,.75)'; }
+  else if (status === 'reset') {
+    const found = S.participants.find(p => p.peerId === peerId);
+    const isHost = found && found.role === 'host';
+    b.textContent = isHost ? 'HOST' : 'HD';
+    b.style.background = isHost ? 'rgba(245,158,11,.85)' : 'rgba(59,111,240,.8)';
+  }
 }
 
 function updateTileMuteIcon(peerId, micOn, camOn) {
