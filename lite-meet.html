@@ -1762,12 +1762,31 @@ function startSubtitleSim(){
 // ─────────────────────────────────────────────
 // RECORDING & DRIVE
 // ─────────────────────────────────────────────
-function toggleRec(){
-  S.recOn=!S.recOn;
+async function toggleRec(){
+  if (S.recStarting || S.recStopping) return;
   const btn=document.getElementById('recBtn');
   const status=document.getElementById('recStatus');
   const timer=document.getElementById('recTimer');
-  if(S.recOn){
+  
+  if(!S.recOn){
+    S.recStarting = true;
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { displaySurface: 'browser' },
+        audio: true,
+        preferCurrentTab: true
+      });
+    } catch(e) {
+      toast('Recording cancelled or not supported', '⚠️');
+      S.recStarting = false;
+      return;
+    }
+    
+    // User authorized capturing the tab/screen
+    S.recOn = true;
+    S.recDisplayStream = stream;
+    
     S.recChunks=[];S.recSec=0;
     // Read recording duration limit
     const recDurSel=document.getElementById('recDuration');
@@ -1783,6 +1802,10 @@ function toggleRec(){
     }
     // Lock duration selector while recording
     if(recDurSel) recDurSel.disabled=true;
+    
+    // Auto stop if user clicks browser's native "Stop Sharing" button
+    stream.getVideoTracks()[0].onended = () => { if(S.recOn) toggleRec(); };
+
     S.recInterval=setInterval(()=>{
       S.recSec++;
       // Show remaining time if limit set, else elapsed
@@ -1793,18 +1816,7 @@ function toggleRec(){
         if(rem===60) toast('Recording — 1 minute remaining','⚠️');
         if(rem===0){
           toast('Recording limit reached — stopping','🔴');
-          // Auto-stop
-          S.recOn=false;
-          clearInterval(S.recInterval);
-          btn.textContent='Start Recording';btn.classList.remove('recording');
-          timer.style.display='none';
-          if(recDurSel) recDurSel.disabled=false;
-          if(S.mediaRecorder&&S.mediaRecorder.state!=='inactive'){
-            S.mediaRecorder.onstop=finishRecording;
-            S.mediaRecorder.stop();
-          } else {
-            finishRecording();
-          }
+          if(S.recOn) toggleRec(); // Trigger standard stop flow
           return;
         }
       } else {
@@ -1812,68 +1824,72 @@ function toggleRec(){
         timer.style.color='';
       }
     },1000);
-    if(S.localStream){
-      try {
-        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
-        
-        // Mix all audio tracks via Web Audio API so remote peers are recorded
-        S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        S.recAudioCtx.resume();
-        const dest = S.recAudioCtx.createMediaStreamDestination();
-        
-        // Anti-Stall Oscillator: Forces the AudioContext to constantly yield samples
-        // even if all realistic audio sources are temporarily completely silent.
-        // This prevents Chrome's MediaRecorder from getting stuck buffering at 0 bytes.
-        const osc = S.recAudioCtx.createOscillator();
-        const nullGain = S.recAudioCtx.createGain();
-        nullGain.gain.value = 0;
-        osc.connect(nullGain);
-        nullGain.connect(dest);
-        osc.start();
-        
-        if (S.localStream.getAudioTracks().length > 0) {
-          S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
-        }
-        if (window.LM && window.LM._peers) {
-          window.LM._peers.forEach(peer => {
-            if (peer.pc) {
-              peer.pc.getReceivers().forEach(r => {
-                if (r.track && r.track.kind === 'audio') {
-                   try { S.recAudioCtx.createMediaStreamSource(new MediaStream([r.track])).connect(dest); } catch(e){}
-                }
-              });
-            }
-          });
-        }
-        
-        const tracks = [];
-        if (S.localStream.getVideoTracks().length > 0) tracks.push(S.localStream.getVideoTracks()[0]);
-        if (dest.stream.getAudioTracks().length > 0) tracks.push(dest.stream.getAudioTracks()[0]);
-        const mixedStream = new MediaStream(tracks);
+    
+    try {
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+      
+      // Mix all audio tracks via Web Audio API
+      S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      S.recAudioCtx.resume();
+      const dest = S.recAudioCtx.createMediaStreamDestination();
+      
+      // Anti-Stall Oscillator
+      const osc = S.recAudioCtx.createOscillator();
+      const nullGain = S.recAudioCtx.createGain();
+      nullGain.gain.value = 0;
+      osc.connect(nullGain);
+      nullGain.connect(dest);
+      osc.start();
+      
+      // Add system/tab audio (contains remote participants' voices)
+      if (stream.getAudioTracks().length > 0) {
+        S.recAudioCtx.createMediaStreamSource(new MediaStream(stream.getAudioTracks())).connect(dest);
+      }
+      // Add local microphone (not heard in system mix because video is muted)
+      if (S.localStream && S.localStream.getAudioTracks().length > 0) {
+        S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
+      }
+      
+      const tracks = [];
+      if (stream.getVideoTracks().length > 0) tracks.push(stream.getVideoTracks()[0]);
+      if (dest.stream.getAudioTracks().length > 0) tracks.push(dest.stream.getAudioTracks()[0]);
+      const mixedStream = new MediaStream(tracks);
 
-        S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
-        S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
-        S.mediaRecorder.start(1000);
-      } catch(e) { toast('Recording error: ' + e.message, '❌'); }
-    }
-    if(recLimitMin>0){
-      toast('Recording started · '+recLimitMin+'min limit','⏺');
-    } else {
-      toast('Recording started','⏺');
-    }
+      S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
+      S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
+      S.mediaRecorder.start(1000);
+      
+      if(recLimitMin>0) toast('Recording started · '+recLimitMin+'min limit','⏺');
+      else toast('Recording started','⏺');
+      
+    } catch(e) { toast('Recording error: ' + e.message, '❌'); }
+    
+    S.recStarting = false;
   } else {
+    S.recStopping = true;
+    S.recOn=false;
+    
+    // Stop the captured tab tracks to clear browser recording indicator
+    if (S.recDisplayStream) {
+      S.recDisplayStream.getTracks().forEach(t => t.stop());
+      S.recDisplayStream = null;
+    }
+    
     clearInterval(S.recInterval);
     const recDurSel=document.getElementById('recDuration');
     if(recDurSel) recDurSel.disabled=false;
     btn.textContent='Start Recording';btn.classList.remove('recording');
     timer.style.display='none';
     timer.style.color='';
+    
     if(S.mediaRecorder&&S.mediaRecorder.state!=='inactive'){
       S.mediaRecorder.onstop=finishRecording;
       S.mediaRecorder.stop();
     } else {
       finishRecording();
     }
+    
+    S.recStopping = false;
   }
 }
 function finishRecording(){
