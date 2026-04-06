@@ -1818,7 +1818,18 @@ function toggleRec(){
         
         // Mix all audio tracks via Web Audio API so remote peers are recorded
         S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        S.recAudioCtx.resume();
         const dest = S.recAudioCtx.createMediaStreamDestination();
+        
+        // Anti-Stall Oscillator: Forces the AudioContext to constantly yield samples
+        // even if all realistic audio sources are temporarily completely silent.
+        // This prevents Chrome's MediaRecorder from getting stuck buffering at 0 bytes.
+        const osc = S.recAudioCtx.createOscillator();
+        const nullGain = S.recAudioCtx.createGain();
+        nullGain.gain.value = 0;
+        osc.connect(nullGain);
+        nullGain.connect(dest);
+        osc.start();
         
         if (S.localStream.getAudioTracks().length > 0) {
           S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
