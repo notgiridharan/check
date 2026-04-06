@@ -1762,132 +1762,117 @@ function startSubtitleSim(){
 // ─────────────────────────────────────────────
 // RECORDING & DRIVE
 // ─────────────────────────────────────────────
-function toggleRec(){
-  S.recOn=!S.recOn;
+async function toggleRec(){
   const btn=document.getElementById('recBtn');
   const status=document.getElementById('recStatus');
   const timer=document.getElementById('recTimer');
-  if(S.recOn){
-    S.recChunks=[];S.recSec=0;
-    // Read recording duration limit
-    const recDurSel=document.getElementById('recDuration');
-    const recLimitMin=recDurSel?parseInt(recDurSel.value,10):0;
-    S.recLimitSec=recLimitMin>0?recLimitMin*60:0;
-    btn.textContent='Stop Recording';btn.classList.add('recording');
-    timer.style.display='block';timer.textContent='00:00';
-    // Show limit indicator
-    if(recLimitMin>0){
-      status.innerHTML='Recording — limit: <strong>'+recLimitMin+' min</strong>';
-    } else {
-      status.textContent='Recording in progress…';
-    }
-    // Lock duration selector while recording
-    if(recDurSel) recDurSel.disabled=true;
-    S.recInterval=setInterval(()=>{
-      S.recSec++;
-      // Show remaining time if limit set, else elapsed
-      if(S.recLimitSec>0){
-        const rem=Math.max(0,S.recLimitSec-S.recSec);
-        timer.textContent=pad(Math.floor(rem/60))+':'+pad(rem%60);
-        timer.style.color=rem<=60?'var(--red)':rem<=300?'var(--amber)':'var(--red)';
-        if(rem===60) toast('Recording — 1 minute remaining','⚠️');
-        if(rem===0){
-          toast('Recording limit reached — stopping','🔴');
-          // Auto-stop
-          S.recOn=false;
-          clearInterval(S.recInterval);
-          btn.textContent='Start Recording';btn.classList.remove('recording');
-          timer.style.display='none';
-          if(recDurSel) recDurSel.disabled=false;
-          if(S.mediaRecorder&&S.mediaRecorder.state!=='inactive'){
-            S.mediaRecorder.onstop=finishRecording;
-            S.mediaRecorder.stop();
-          } else {
-            finishRecording();
-          }
-          return;
-        }
-      } else {
-        timer.textContent=pad(Math.floor(S.recSec/60))+':'+pad(S.recSec%60);
-        timer.style.color='';
-      }
-    },1000);
+  const recDurSel=document.getElementById('recDuration');
+
+  if(!S.recOn){
+    // START RECORDING
     try {
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
-      
-      // Mix all audio tracks via Web Audio API so remote peers are recorded
+      // 1. Get Screen Capture Stream ( guaranteed video track )
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+        video: { cursor: "always" }, 
+        audio: { echoCancellation: true, noiseSuppression: true } 
+      });
+      S.recStream = screenStream;
+      S.recChunks = [];
+      S.recSec = 0;
+      S.recOn = true;
+
+      const recLimitMin = recDurSel ? parseInt(recDurSel.value, 10) : 0;
+      S.recLimitSec = recLimitMin > 0 ? recLimitMin * 60 : 0;
+
+      btn.textContent = 'Stop Recording';
+      btn.classList.add('recording');
+      timer.style.display = 'block';
+      timer.textContent = '00:00';
+      if(recDurSel) recDurSel.disabled = true;
+
+      // 2. Audio Pipeline: Mix Screen Audio + Local Mic + Remote Peers
       S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const dest = S.recAudioCtx.createMediaStreamDestination();
-      
-      if (S.localStream && S.localStream.getAudioTracks().length > 0) {
-        S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
+
+      // Mix Screen Audio (if user checked 'Share tab audio')
+      if (screenStream.getAudioTracks().length > 0) {
+        S.recAudioCtx.createMediaStreamSource(new MediaStream([screenStream.getAudioTracks()[0]])).connect(dest);
       }
+      // Mix Local Mic
+      if (S.localStream && S.localStream.getAudioTracks().length > 0) {
+        S.recAudioCtx.createMediaStreamSource(new MediaStream([S.localStream.getAudioTracks()[0]])).connect(dest);
+      }
+      // Mix Remote Peers
       if (window.LM && window.LM._peers) {
         window.LM._peers.forEach(peer => {
           if (peer.pc) {
             peer.pc.getReceivers().forEach(r => {
               if (r.track && r.track.kind === 'audio') {
-                 try { S.recAudioCtx.createMediaStreamSource(new MediaStream([r.track])).connect(dest); } catch(e){}
+                try { S.recAudioCtx.createMediaStreamSource(new MediaStream([r.track])).connect(dest); } catch(e){}
               }
             });
           }
         });
       }
-      
-      const tracks = [];
-      // Guarantee a video track exists and is actively producing frames, else MediaRecorder hangs
-      let hasVideo = false;
-      if (S.localStream && S.localStream.getVideoTracks().length > 0) {
-         const vt = S.localStream.getVideoTracks()[0];
-         if (vt.enabled && vt.readyState !== 'ended') {
-            tracks.push(vt);
-            hasVideo = true;
-         }
-      }
-      
-      if (!hasVideo) {
-         // Create a synthetic black video stream to force MediaRecorder to initialize successfully
-         const c = document.createElement('canvas');
-         c.width = 640; c.height = 480;
-         const ctx = c.getContext('2d');
-         ctx.fillRect(0, 0, 640, 480);
-         const dummyStream = c.captureStream(15);
-         tracks.push(dummyStream.getVideoTracks()[0]);
-         
-         // Periodically paint to keep the stream tracks emitting frames
-         S.recDummyTick = setInterval(() => {
-           ctx.fillRect(0, 0, 640, 480);
-           ctx.fillStyle = Date.now() % 1000 > 500 ? '#111' : '#000';
-         }, 1000);
-      }
 
+      const tracks = [screenStream.getVideoTracks()[0]];
       if (dest.stream.getAudioTracks().length > 0) tracks.push(dest.stream.getAudioTracks()[0]);
       const mixedStream = new MediaStream(tracks);
 
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
       S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
       S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
+      
+      // Handle "Stop Sharing" button in browser UI
+      screenStream.getVideoTracks()[0].onended = () => { if(S.recOn) toggleRec(); };
+
       S.mediaRecorder.start(1000);
-    } catch(e) { toast('Recording error: ' + e.message, '❌'); }
-    if(recLimitMin>0){
-      toast('Recording started · '+recLimitMin+'min limit','⏺');
-    } else {
-      toast('Recording started','⏺');
+
+      S.recInterval = setInterval(() => {
+        S.recSec++;
+        if(S.recLimitSec > 0){
+          const rem = Math.max(0, S.recLimitSec - S.recSec);
+          timer.textContent = pad(Math.floor(rem/60)) + ':' + pad(rem%60);
+          timer.style.color = rem <= 60 ? 'var(--red)' : '';
+          if(rem === 0) toggleRec(); // Auto-stop
+        } else {
+          timer.textContent = pad(Math.floor(S.recSec/60)) + ':' + pad(S.recSec%60);
+        }
+      }, 1000);
+
+      toast('Screen selection active — Recording started', '⏺');
+      status.textContent = 'Recording Screen...';
+
+    } catch(err) {
+      console.error("Recording start failed:", err);
+      toast('Recording start cancelled or failed', '❌');
+      S.recOn = false;
     }
   } else {
+    // STOP RECORDING
+    S.recOn = false;
     clearInterval(S.recInterval);
-    const recDurSel=document.getElementById('recDuration');
-    if(recDurSel) recDurSel.disabled=false;
-    btn.textContent='Start Recording';btn.classList.remove('recording');
-    timer.style.display='none';
-    timer.style.color='';
-    if(S.mediaRecorder&&S.mediaRecorder.state!=='inactive'){
-      S.mediaRecorder.onstop=finishRecording;
+    if(recDurSel) recDurSel.disabled = false;
+    btn.textContent = 'Start Recording';
+    btn.classList.remove('recording');
+    timer.style.display = 'none';
+    status.textContent = 'Not recording';
+
+    if (S.mediaRecorder && S.mediaRecorder.state !== 'inactive') {
+      S.mediaRecorder.onstop = finishRecording;
       S.mediaRecorder.stop();
     } else {
       finishRecording();
     }
+    
+    // Stop all tracks in screen stream
+    if (S.recStream) {
+       S.recStream.getTracks().forEach(t => t.stop());
+       S.recStream = null;
+    }
   }
 }
+
 async function finishRecording(){
   const status=document.getElementById('recStatus');
   const prog=document.getElementById('uploadProgress');
