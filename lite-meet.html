@@ -117,6 +117,21 @@ select.form-input option{background:var(--surface2)}
 .vtile-2g-icon{font-size:1.4rem;opacity:.7}
 .vtile-2g-txt{font-size:.65rem;color:var(--red);font-weight:600;text-align:center;letter-spacing:.04em}
 .topbar-name{font-size:.75rem;color:var(--text2);font-weight:500;flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── BANDWIDTH FEATURE GATING ── */
+.snav-btn.locked{opacity:.38;cursor:not-allowed;position:relative}
+.snav-btn.locked::after{content:'🔒';font-size:.55rem;position:absolute;top:.2rem;right:.15rem;opacity:.7}
+.snav-btn.locked:hover{color:var(--text3)!important}
+.bw-banner{display:none;align-items:flex-start;gap:.55rem;padding:.55rem .75rem;border-bottom:1px solid var(--border);background:var(--surface2);flex-shrink:0;animation:tIn .25s ease}
+.bw-banner.show{display:flex}
+.bw-banner-icon{font-size:1rem;flex-shrink:0;margin-top:.05rem}
+.bw-banner-body{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.bw-banner-title{font-size:.68rem;font-weight:700;letter-spacing:.03em}
+.bw-banner-title.bad{color:var(--red)}
+.bw-banner-title.mid{color:var(--amber)}
+.bw-banner-detail{font-size:.63rem;color:var(--text3);line-height:1.55}
+/* locked ctrlbar buttons */
+.cbtn.feature-locked{opacity:.35;cursor:not-allowed;position:relative}
+.cbtn.feature-locked::after{content:'🔒';font-size:.5rem;position:absolute;top:.1rem;right:.1rem}
 
 /* ── MAIN ── */
 .main{display:flex;flex:1;overflow:hidden;min-height:0}
@@ -554,7 +569,7 @@ input[type=range].ai-sl::-webkit-slider-thumb{
             <div class="avatar-ring" id="localAvatarRing">YO</div>
             <div style="font-size:.68rem;color:var(--text3);margin-top:.3rem" id="localAvatarName">You</div>
           </div>
-          <video id="localVideo" autoplay muted playsinline webkit-playsinline style="display:none;width:100%;height:100%;object-fit:cover"></video>
+          <video id="localVideo" autoplay muted playsinline webkit-playsinline style="display:none;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)"></video>
           <div class="vtile-label">
             <span class="vtile-name" id="localTileName">You</span>
             <span class="vtile-badge" id="localRoleBadge">HOST</span>
@@ -869,6 +884,10 @@ input[type=range].ai-sl::-webkit-slider-thumb{
         <div class="toggle-track"></div>
         <span id="netAutoLabel">On</span>
       </label>
+    </div>
+    <div>
+      <div style="font-size:.66rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.45rem">Features Available</div>
+      <div id="netFeatGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .6rem"></div>
     </div>
     <button class="net-close-btn" onclick="closeNetModal()">Close</button>
   </div>
@@ -1341,17 +1360,56 @@ function _applyNetProfile(profile, force) {
   // Apply to WebRTC
   if (LM) LM.setNetworkProfile(profile);
 
-  // Apply video-track enable/disable for 2G locally
+  // ── Video track enable/disable based on network profile ───────────────
+  // We use a dedicated flag (S._netVideoSuppressed) to track when the
+  // network — not the user — disabled the video. This prevents the bug
+  // where S.camOn drifts out of sync and video never comes back on restore.
   if (S.localStream) {
     const videoEnabled = (profile !== 'bad');
-    S.localStream.getVideoTracks().forEach(t => { t.enabled = videoEnabled; });
-    // If cam was on but 2G kicked in, show avatar
-    if (!videoEnabled && S.camOn) {
+    const hadNetworkSuppression = !!S._netVideoSuppressed;
+
+    if (!videoEnabled && !hadNetworkSuppression && S.camOn) {
+      // Network just degraded to 2G and cam was active — suppress video
+      S._netVideoSuppressed = true;
+      S.localStream.getVideoTracks().forEach(t => { t.enabled = false; });
       document.getElementById('localVideo').style.display = 'none';
       document.getElementById('localAvatarWrap').style.display = 'flex';
-    } else if (videoEnabled && S.camOn && S.localStream) {
-      document.getElementById('localVideo').style.display = 'block';
-      document.getElementById('localAvatarWrap').style.display = 'none';
+      // Update cam button to show network-suppressed state (dim it but keep S.camOn true)
+      const camBtn = document.getElementById('camBtn');
+      if (camBtn) {
+        camBtn.classList.add('off');
+        camBtn.innerHTML = '📡<span class="cbtn-lbl">Cam off</span>';
+        camBtn.title = 'Video disabled on 2G to save data';
+      }
+    } else if (videoEnabled && hadNetworkSuppression) {
+      // Network recovered — restore video regardless of cam button state
+      S._netVideoSuppressed = false;
+      S.localStream.getVideoTracks().forEach(t => { t.enabled = S.camOn; });
+      if (S.camOn) {
+        const v = document.getElementById('localVideo');
+        v.style.display = 'block';
+        document.getElementById('localAvatarWrap').style.display = 'none';
+        // Re-trigger play in case the element stalled while hidden
+        v.play().catch(() => {});
+        // Restore cam button
+        const camBtn = document.getElementById('camBtn');
+        if (camBtn) {
+          camBtn.classList.remove('off');
+          camBtn.innerHTML = '📷<span class="cbtn-lbl">Cam</span>';
+          camBtn.title = '';
+        }
+      } else {
+        // User had turned cam off manually while on 2G — keep it off, just restore button label
+        const camBtn = document.getElementById('camBtn');
+        if (camBtn) {
+          camBtn.classList.add('off');
+          camBtn.innerHTML = '🚫<span class="cbtn-lbl">Cam</span>';
+          camBtn.title = '';
+        }
+      }
+    } else if (!videoEnabled) {
+      // Already suppressed or cam was already off — just ensure track is disabled
+      S.localStream.getVideoTracks().forEach(t => { t.enabled = false; });
     }
   }
 
@@ -1384,8 +1442,139 @@ function _applyNetProfile(profile, force) {
     }
   }
 
+  // Apply feature gating (lock/unlock tabs & buttons by bandwidth tier)
+  _applyFeatureGating(profile);
+
   // Update modal if open
   _updateNetModal();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADAPTIVE FEATURE GATING
+// Locks / unlocks sidebar tabs and control-bar buttons based on the
+// current network profile so the UI stays usable on slow connections.
+//
+// 2G (bad)  → Audio · Chat · Polls · People only
+// 3G (mid)  → + Whiteboard · Docs
+// 4G+ (good)→ Everything (Drive · Screen · AI · Recording)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Feature matrix — maps tab/button ids to the minimum profile needed
+const FEATURE_GATES = {
+  // [tab name in onclick attr, minimum allowed profile index (0=good,1=mid,2=bad)]
+  tabs: [
+    { name: 'whiteboard', minIdx: 1, label: 'Whiteboard',  reason: '3G or better needed for whiteboard sync' },
+    { name: 'docs',       minIdx: 1, label: 'Docs',        reason: '3G or better needed for document sharing' },
+    { name: 'drive',      minIdx: 0, label: 'Drive',       reason: '4G or better needed for recording & drive' },
+    // chat, polls, people – always accessible (no gate)
+  ],
+  // ctrlbar button ids
+  btns: [
+    { id: 'screenBtn', minIdx: 0, reason: '4G or better needed for screen sharing' },
+    { id: 'aiBtn',     minIdx: 0, reason: '4G or better needed for AI enhancement' },
+  ],
+};
+
+function _applyFeatureGating(profile) {
+  const profileIdx = ['good','mid','bad'].indexOf(profile); // 0,1,2
+
+  // ── Sidebar tabs ──────────────────────────────────────────────────────
+  FEATURE_GATES.tabs.forEach(gate => {
+    const locked = profileIdx > gate.minIdx; // higher idx = slower
+    _setTabLocked(gate.name, locked, gate.reason);
+  });
+
+  // ── Ctrl-bar buttons ──────────────────────────────────────────────────
+  FEATURE_GATES.btns.forEach(gate => {
+    const locked = profileIdx > gate.minIdx;
+    const btn = document.getElementById(gate.id);
+    if (!btn) return;
+    if (locked) {
+      btn.classList.add('feature-locked');
+      btn.dataset.lockedReason = gate.reason;
+      btn.onclick = function() {
+        toast(gate.reason, '🔒');
+      };
+      btn.oncontextmenu = function(e) { e.preventDefault(); toast(gate.reason, '🔒'); };
+    } else {
+      btn.classList.remove('feature-locked');
+      delete btn.dataset.lockedReason;
+      // Restore original handlers
+      if (gate.id === 'screenBtn') {
+        btn.onclick = toggleScreen;
+        btn.oncontextmenu = null;
+      } else if (gate.id === 'aiBtn') {
+        btn.onclick = toggleAI;
+        btn.oncontextmenu = function(e) { toggleAIPanel(e); };
+      }
+    }
+  });
+
+  // ── Bandwidth info banner ─────────────────────────────────────────────
+  _updateBwBanner(profile);
+}
+
+function _setTabLocked(tabName, locked, reason) {
+  // Find the snav button whose onclick references this tab name
+  const btn = document.querySelector('.snav-btn[onclick*="\'' + tabName + '\'"]') ||
+              document.querySelector('.snav-btn[onclick*="\'" + tabName + "\'"]');
+  if (!btn) return;
+
+  if (locked) {
+    btn.classList.add('locked');
+    btn.dataset.lockedReason = reason;
+    // If current active tab is being locked, switch to chat
+    const panel = document.getElementById('tab-' + tabName);
+    if (panel && panel.classList.contains('active')) {
+      const chatBtn = document.querySelector('.snav-btn[onclick*="chat"]');
+      if (chatBtn) switchTab('chat', chatBtn);
+    }
+  } else {
+    btn.classList.remove('locked');
+    delete btn.dataset.lockedReason;
+  }
+}
+
+function _updateBwBanner(profile) {
+  // Ensure banner element exists in the sidebar
+  let banner = document.getElementById('bwBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'bwBanner';
+    banner.className = 'bw-banner';
+    // Insert at top of sidebar, before the snav
+    const sidebar = document.getElementById('sidebar');
+    const snav = sidebar && sidebar.querySelector('.snav');
+    if (snav) sidebar.insertBefore(banner, snav);
+    else if (sidebar) sidebar.prepend(banner);
+  }
+
+  const configs = {
+    bad: {
+      show: true, cls: 'bad', icon: '📶',
+      title: '2G — Audio Priority Mode',
+      detail: 'Slow connection detected. Audio & Chat always on.\nWhiteboard, Docs, Drive locked to save bandwidth.',
+    },
+    mid: {
+      show: true, cls: 'mid', icon: '📶',
+      title: '3G — Balanced Mode',
+      detail: 'Moderate connection. Whiteboard & Docs available.\nDrive, Recording & Screen Share need 4G.',
+    },
+    good: { show: false },
+  };
+
+  const cfg = configs[profile] || configs.good;
+  if (!cfg.show) {
+    banner.classList.remove('show');
+    return;
+  }
+  banner.classList.add('show');
+  banner.innerHTML =
+    '<div class="bw-banner-icon">' + cfg.icon + '</div>' +
+    '<div class="bw-banner-body">' +
+      '<div class="bw-banner-title ' + cfg.cls + '">' + cfg.title + '</div>' +
+      '<div class="bw-banner-detail">' + cfg.detail.replace(/\n/g, '<br>') + '</div>' +
+    '</div>';
 }
 
 // ── Periodic check using the API (fires immediately + every 4s) ───────
@@ -2278,6 +2467,12 @@ function renderPeople(){
 // TABS
 // ─────────────────────────────────────────────
 function switchTab(tab,el){
+  // Block switching to locked tabs
+  if (el && el.classList.contains('locked')) {
+    const reason = el.dataset.lockedReason || 'This feature requires a better connection';
+    toast(reason, '🔒');
+    return;
+  }
   document.querySelectorAll('.snav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.spanel').forEach(p=>p.classList.remove('active'));
   el.classList.add('active');
@@ -3077,6 +3272,31 @@ function _updateNetModal() {
   const lbl = document.getElementById('netAutoLabel');
   if (tog) tog.checked = NET.autoDetect;
   if (lbl) lbl.textContent = NET.autoDetect ? 'On' : 'Off';
+
+  // ── Feature availability grid (populated if #netFeatGrid exists) ────
+  const featEl = document.getElementById('netFeatGrid');
+  if (featEl) {
+    const profileIdx = ['good','mid','bad'].indexOf(profile);
+    const feats = [
+      { icon: '🎤', name: 'Audio',      minIdx: 2 },
+      { icon: '💬', name: 'Chat',       minIdx: 2 },
+      { icon: '📊', name: 'Polls',      minIdx: 2 },
+      { icon: '👥', name: 'People',     minIdx: 2 },
+      { icon: '📹', name: 'Video',      minIdx: 1 },
+      { icon: '🎨', name: 'Whiteboard', minIdx: 1 },
+      { icon: '📄', name: 'Docs',       minIdx: 1 },
+      { icon: '📁', name: 'Drive',      minIdx: 0 },
+      { icon: '🖥', name: 'Screen',     minIdx: 0 },
+      { icon: '✦',  name: 'AI',         minIdx: 0 },
+    ];
+    featEl.innerHTML = feats.map(f => {
+      const on = profileIdx <= f.minIdx;
+      return '<span style="display:flex;align-items:center;gap:.28rem;font-size:.65rem;' +
+        (on ? 'color:var(--green)' : 'color:var(--text3)') + '">' +
+        '<span style="font-size:.6rem">' + (on ? '✓' : '✕') + '</span>' +
+        '<span>' + f.icon + '</span>' + f.name + '</span>';
+    }).join('');
+  }
 }
 function manualSetProfile(profile) {
   NET.autoDetect = false;
@@ -3113,7 +3333,7 @@ function endCall() {
     const v = document.getElementById('localVideo');
     v.srcObject = null; v.style.display = 'none';
     document.getElementById('localAvatarWrap').style.display = 'flex';
-    S.micOn = true; S.camOn = true; S.screenOn = false; S.aiOn = false;
+    S.micOn = true; S.camOn = true; S.screenOn = false; S.aiOn = false; S._netVideoSuppressed = false;
     document.getElementById('micBtn').classList.remove('off');
     document.getElementById('micBtn').innerHTML = '🎤<span class="cbtn-lbl">Mic</span>';
     document.getElementById('camBtn').classList.remove('off');
