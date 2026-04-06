@@ -150,6 +150,13 @@ select.form-input option{background:var(--surface2)}
 .session-timer{font-size:.7rem;color:var(--text3);font-weight:600;letter-spacing:.04em;padding:.18rem .5rem;background:var(--surface2);border:1px solid var(--border);border-radius:20px;flex-shrink:0;cursor:pointer;user-select:none}
 .session-timer.warn{color:var(--amber);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.06)}
 .session-timer.danger{color:var(--red);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.06)}
+/* 3G pixelated mode — low-res stream scaled up with nearest-neighbor, no blur */
+.net-3g video,
+.net-3g .vtile-ai-canvas{
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+}
 .hand-queue{display:flex;flex-direction:column;gap:.3rem;padding:.5rem .65rem;border-bottom:1px solid var(--border);flex-shrink:0;min-height:0}
 .hand-item{display:flex;align-items:center;gap:.5rem;padding:.3rem .45rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--r2)}
 .hand-item-name{font-size:.75rem;color:var(--text2);flex:1}
@@ -1382,6 +1389,11 @@ function _applyNetProfile(profile, force) {
   const lbl   = document.getElementById('netLabel');
   if (badge) badge.className = 'net-badge ' + p.cls;
   if (lbl)   lbl.textContent = p.label + (NET.rtt ? ' · ' + NET.rtt + 'ms' : '');
+
+  // Apply 3G pixelated CSS class to all video tiles
+  document.querySelectorAll('.vtile').forEach(t => {
+    t.classList.toggle('net-3g', profile === 'mid');
+  });
 
   // Apply to WebRTC
   if (LM) LM.setNetworkProfile(profile);
@@ -2712,6 +2724,8 @@ function _clearRemoteTiles() {
   });
   // Also clear participants list (will be rebuilt from 'joined' payload)
   S.participants = S.participants.filter(p => !p.peerId); // keep local (null peerId)
+  // Reset network video suppression flag so video resumes properly on reconnect
+  S._netVideoSuppressed = false;
   renderPeople();
   updateGrid();
 }
@@ -3223,17 +3237,32 @@ function initWebRTC() {
   LM.connect(S.localStream);
 }
 
+// _attachStream: safely bind a WebRTC stream to a <video> element.
+// Waits for loadedmetadata before calling play() — prevents frozen video
+// after reconnect or signal-mode switching where play() would silently fail.
+function _attachStream(v, stream) {
+  if (v._lmMeta) v.removeEventListener('loadedmetadata', v._lmMeta);
+  v.srcObject = stream;
+  v.muted = false;
+  const doPlay = () => {
+    v.play().catch(() => {
+      const resume = () => { v.play().catch(() => {}); };
+      document.addEventListener('click', resume, { once: true });
+    });
+  };
+  if (v.readyState >= 1) { doPlay(); }
+  else { v._lmMeta = doPlay; v.addEventListener('loadedmetadata', v._lmMeta, { once: true }); }
+}
+
 // ── Remote video tiles ────────────────────────────────
 function addRemoteVideoTile(peerId, stream) {
   let tile = document.getElementById('tile-' + peerId);
   if (tile) {
     if (stream) {
       const v = tile.querySelector('video');
-      if (v) { 
-        v.srcObject = stream; 
-        v.muted = false;
-        v.play().catch(() => {});
-        const hasVideo = stream.getVideoTracks().length > 0;
+      if (v) {
+        _attachStream(v, stream);
+        const hasVideo = stream.getVideoTracks().some(t => t.readyState === 'live');
         if (hasVideo) {
           v.style.display = 'block';
           const av = document.getElementById('avatar-' + peerId);
@@ -3249,7 +3278,7 @@ function addRemoteVideoTile(peerId, stream) {
   const rrole = found ? found.role : 'student';
 
   tile = document.createElement('div');
-  tile.className = 'vtile';
+  tile.className = 'vtile' + (NET.currentProfile === 'mid' ? ' net-3g' : '');
   tile.id = 'tile-' + peerId;
   tile.onclick = function() { pinTile(this.id); };
   tile.title = 'Click to focus';
@@ -3269,18 +3298,13 @@ function addRemoteVideoTile(peerId, stream) {
 
   if (stream) {
     const v = tile.querySelector('video');
-    v.srcObject = stream;
-    v.muted = false;
-    v.play().catch(() => {});
-    
-    // Only reveal video if there's an actual video track, otherwise it displays black
-    const hasVideo = stream.getVideoTracks().length > 0;
+    _attachStream(v, stream);
+    const hasVideo = stream.getVideoTracks().some(t => t.readyState === 'live');
     if (hasVideo) {
       v.style.display = 'block';
       const av = document.getElementById('avatar-' + peerId);
       if (av) av.style.display = 'none';
     }
-
     startAudioDetection(stream, 'tile-' + peerId, 'ring-' + peerId);
   }
   _postAddTile(peerId);

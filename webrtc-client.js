@@ -338,11 +338,15 @@
             // Disable local video track so no frames are captured/encoded at all
             sender.track.enabled = profile.videoEnabled;
 
-            // Also add scaleResolutionDownBy for 3G to save more bandwidth
             if (profileName === 'mid') {
-              enc.scaleResolutionDownBy = 2; // 360p from 720p source
+              // 3G: heavy resolution downscale — quarter res (180p from 720p).
+              // Low data = no packet drops = no stutter. Looks pixelated, plays smoothly.
+              enc.scaleResolutionDownBy = 4;
+              enc.maxFramerate = 24;      // stable 24fps, not choppy
             } else if (profile.videoEnabled) {
-              enc.scaleResolutionDownBy = 1; // full res for 4G
+              // 4G / WiFi: full resolution, no artificial frame-rate cap
+              delete enc.scaleResolutionDownBy;
+              delete enc.maxFramerate;
             }
           } else if (sender.track.kind === 'audio') {
             enc.maxBitrate = profile.audioBps;
