@@ -37,9 +37,9 @@
   // videoBps=1 for 'bad' because maxBitrate=0 is treated as "no limit" in some
   // browsers. Setting active=false + track.enabled=false reliably disables video.
   const NET_PROFILES = {
-    good: { videoBps: 128_000, audioBps: 32_000, videoEnabled: true,  label:'4G' },  // 4G / WiFi
-    mid:  { videoBps:  48_000, audioBps: 16_000, videoEnabled: true,  label:'3G' },  // 3G compressed
-    bad:  { videoBps:       1, audioBps:  6_000, videoEnabled: false, label:'2G' },  // 2G – Opus voice 6kbps
+    good: { videoBps: 2_500_000, audioBps: 128_000, videoEnabled: true,  label:'4G' },  // 4G / WiFi — max quality
+    mid:  { videoBps:    48_000, audioBps:  16_000, videoEnabled: true,  label:'3G' },  // 3G compressed
+    bad:  { videoBps:         1, audioBps:   6_000, videoEnabled: false, label:'2G' },  // 2G – Opus voice 6kbps
   };
 
   // ── Main class ──────────────────────────────────────────────────────────────
@@ -96,8 +96,9 @@
       }
     }
 
-    /** Tear everything down. */
+    /** Tear everything down (called on explicit leave or page unload). */
     disconnect() {
+      this._manualDisconnect = true;
       for (const [peerId] of this._peers) this._closePeer(peerId);
       if (this._socket) this._socket.disconnect();
     }
@@ -112,18 +113,31 @@
       const { serverUrl, roomId, name, role, pin = '' } = this._opts;
 
       // io() is loaded from /socket.io/socket.io.js by the HTML
-      const socket = io(serverUrl, { transports: ['websocket', 'polling'] });
+      // reconnection: true is the default; we keep it and handle the re-join ourselves.
+      const socket = io(serverUrl, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: Infinity,
+      });
       this._socket = socket;
+      this._manualDisconnect = false;
 
       // ── Lifecycle ──────────────────────────────────────────────────────────
       socket.on('connect', () => {
         this._myId = socket.id;
         this._emit('connected', {});
-        // Join the room
+        // Join (or re-join after reconnect)
         socket.emit('join-room', { roomId, name, role, pin });
       });
 
       socket.on('disconnect', reason => {
+        // Tear down all peer connections immediately so stale ICE state
+        // doesn't block fresh negotiation after reconnect.
+        // Do NOT emit 'peer-left' here — the server will do that for others;
+        // we just clean up our local PC objects silently.
+        for (const [peerId] of this._peers) this._closePeer(peerId);
         this._emit('disconnected', { reason });
       });
 
@@ -139,6 +153,10 @@
       });
 
       socket.on('joined', ({ role: myRole, participants, polls = [] }) => {
+        // Clean up any lingering PCs before rebuilding (handles reconnect case
+        // where disconnect handler may not have run yet)
+        for (const [peerId] of this._peers) this._closePeer(peerId);
+
         this._emit('joined', { role: myRole, participants });
 
         // Restore any open polls
@@ -185,6 +203,8 @@
         'peer-media-state', 'peer-hand', 'peer-knock',
         'mute-all',
         'focus-sync',
+        'host-only-view',
+        'knock-admit', 'knock-deny',
       ];
       RELAY_EVENTS.forEach(ev => {
         socket.on(ev, payload => this._emit(ev, payload));

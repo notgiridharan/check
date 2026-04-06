@@ -2677,9 +2677,85 @@ function initOfflineDetection() {
       banner.classList.add('show');
     }
   }
-  window.addEventListener('online', () => { update(); toast('Connection restored', '🟢'); });
-  window.addEventListener('offline', () => { update(); toast('Connection lost — reconnecting', '🔴'); });
+  window.addEventListener('online', () => {
+    update();
+    toast('Connection restored — reconnecting to room…', '🟢');
+    // Socket.IO will auto-reconnect; if it's already connected (race
+    // condition where the socket recovered before the browser fired 'online'),
+    // force a fresh join-room to get a clean server-side state.
+    if (LM && LM._socket && LM._socket.connected) {
+      LM._socket.emit('join-room', {
+        roomId: S.roomId, name: S.name, role: S.role, pin: S.pin || ''
+      });
+    }
+  });
+  window.addEventListener('offline', () => {
+    update();
+    _clearRemoteTiles();
+    _showReconnectOverlay();
+    toast('Connection lost — reconnecting when online', '🔴');
+  });
   update();
+}
+
+// ── Clear all remote video tiles (called on disconnect / reconnect) ────────
+// Tears down DOM tiles, audio detection, AI loops, and participants list
+// for every peer EXCEPT the local tile.
+function _clearRemoteTiles() {
+  const grid = document.getElementById('videoGrid');
+  if (!grid) return;
+  const remoteTiles = Array.from(grid.querySelectorAll('.vtile:not(#localTile)'));
+  remoteTiles.forEach(tile => {
+    stopAudioDetection(tile.id);
+    _aiStopTile(tile.id);
+    tile.remove();
+  });
+  // Also clear participants list (will be rebuilt from 'joined' payload)
+  S.participants = S.participants.filter(p => !p.peerId); // keep local (null peerId)
+  renderPeople();
+  updateGrid();
+}
+
+// ── Reconnecting overlay ──────────────────────────────────────────────────
+let _reconnectAttempt = 0;
+let _reconnectTimer = null;
+
+function _showReconnectOverlay() {
+  let ov = document.getElementById('reconnectOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'reconnectOverlay';
+    ov.style.cssText = [
+      'position:fixed;inset:0;z-index:8000;display:flex;flex-direction:column',
+      'align-items:center;justify-content:center;gap:1rem',
+      'background:rgba(10,10,15,.88);backdrop-filter:blur(4px)',
+      'animation:tIn .2s ease'
+    ].join(';');
+    ov.innerHTML =
+      '<div style="width:38px;height:38px;border:3px solid rgba(59,111,240,.3);border-top-color:var(--blue);border-radius:50%;animation:_spin 0.9s linear infinite"></div>' +
+      '<div style="font-family:var(--serif);font-size:1.2rem;font-style:italic;color:var(--text)">Reconnecting…</div>' +
+      '<div style="font-size:.76rem;color:var(--text3);text-align:center;max-width:240px" id="rcMsg">Waiting for network. Video & audio will resume automatically.</div>' +
+      '<button onclick="endCall()" style="margin-top:.5rem;background:transparent;border:1px solid var(--border2);color:var(--text2);border-radius:var(--r2);padding:.45rem 1rem;font-family:var(--sans);font-size:.78rem;cursor:pointer">Leave Meeting</button>';
+    // Add spinner keyframe if not present
+    if (!document.getElementById('rcSpinKf')) {
+      const st = document.createElement('style');
+      st.id = 'rcSpinKf';
+      st.textContent = '@keyframes _spin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(st);
+    }
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'flex';
+  // Update attempt counter
+  _reconnectAttempt++;
+  const msg = document.getElementById('rcMsg');
+  if (msg) msg.textContent = 'Attempt ' + _reconnectAttempt + ' — video & audio will resume automatically.';
+}
+
+function _hideReconnectOverlay() {
+  const ov = document.getElementById('reconnectOverlay');
+  if (ov) ov.style.display = 'none';
+  _reconnectAttempt = 0;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2997,11 +3073,24 @@ function initWebRTC() {
     roomId: S.roomId, name: S.name, role: S.role, pin: S.pin || ''
   });
 
-  LM.on('connected', () => toast('Server connected', '🟢'));
-  LM.on('disconnected', ({ reason }) => toast('Disconnected: ' + reason, '🔴'));
+  LM.on('connected', () => {
+    // Hide reconnecting overlay if showing
+    _hideReconnectOverlay();
+    toast('Server connected', '🟢');
+  });
+  LM.on('disconnected', ({ reason }) => {
+    // Show reconnecting overlay and clear frozen remote tiles
+    _clearRemoteTiles();
+    _showReconnectOverlay();
+    toast('Disconnected — reconnecting…', '🔴');
+  });
   LM.on('error', ({ msg }) => { toast(msg, '❌'); sysMsg('Error: ' + msg); });
 
   LM.on('joined', ({ role, participants }) => {
+    // On reconnect: clear any stale remote tiles before rebuilding
+    _clearRemoteTiles();
+    _hideReconnectOverlay();
+
     S.role = role;
     const lb = document.getElementById('localRoleBadge');
     if (lb) lb.textContent = role === 'host' ? 'HOST' : 'STUDENT';
@@ -3452,6 +3541,8 @@ function endCall() {
   // Remove session-end overlay if visible
   const ov = document.getElementById('sessionEndOverlay');
   if (ov) ov.remove();
+  // Remove reconnect overlay if visible
+  _hideReconnectOverlay();
   if (LM) { LM.disconnect(); LM = null; }
   for (const id of _analysers.keys()) stopAudioDetection(id);
   toast('Session ended', '👋');
