@@ -1868,30 +1868,21 @@ function toggleRec(){
 function finishRecording(){
   const status=document.getElementById('recStatus');
   const prog=document.getElementById('uploadProgress');
-  const fill=document.getElementById('uploadFill');
   if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
-  status.textContent='Processing…';
-  prog.style.display='block';fill.style.width='0%';
-  let p=0;
-  const t=setInterval(()=>{
-    p+=Math.random()*18+5;
-    if(p>=100){p=100;clearInterval(t);
-      status.textContent='Saved ✓';prog.style.display='none';
-      const fname='LiteMeet_'+S.roomId+'_'+new Date().toISOString().slice(0,10)+'.webm';
-      if(S.recChunks.length){
-        const blob=new Blob(S.recChunks,{type:'video/webm'});
-        const url=URL.createObjectURL(blob);
-        addDriveFile(fname,formatBytes(blob.size),'🎬','synced');
-        const a=document.createElement('a');a.href=url;a.download=fname;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        toast('Recording saved: '+fname,'💾');
-      } else {
-        addDriveFile(fname,'~0 KB','🎬','synced');
-        toast('Recording saved (no stream captured)','💾');
-      }
-    }
-    fill.style.width=Math.min(p,100)+'%';
-  },200);
+  status.textContent='Saved ✓';
+  prog.style.display='none';
+  const fname='LiteMeet_'+S.roomId+'_'+new Date().toISOString().slice(0,10)+'.webm';
+  if(S.recChunks.length){
+    const blob=new Blob(S.recChunks,{type:'video/webm'});
+    const url=URL.createObjectURL(blob);
+    addDriveFile(fname,formatBytes(blob.size),'🎬','synced');
+    const a=document.createElement('a');a.href=url;a.download=fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast('Recording saved: '+fname,'💾');
+  } else {
+    addDriveFile(fname,'~0 KB','🎬','synced');
+    toast('Recording saved (no stream captured)','💾');
+  }
 }
 function addDriveFile(name,size,icon,status){
   S.driveFiles.unshift({name,size,icon,status});
