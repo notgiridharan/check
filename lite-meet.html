@@ -1882,7 +1882,8 @@ function finishRecording(){
         const blob=new Blob(S.recChunks,{type:'video/webm'});
         const url=URL.createObjectURL(blob);
         addDriveFile(fname,formatBytes(blob.size),'🎬','synced');
-        const a=document.createElement('a');a.href=url;a.download=fname;a.click();
+        const a=document.createElement('a');a.href=url;a.download=fname;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         toast('Recording saved: '+fname,'💾');
       } else {
         addDriveFile(fname,'~0 KB','🎬','synced');
@@ -1911,7 +1912,8 @@ function exportWhiteboard(){
   const c=document.getElementById('wbCanvas');
   const url=c.toDataURL('image/png');
   const name='whiteboard_'+S.roomId+'.png';
-  const a=document.createElement('a');a.href=url;a.download=name;a.click();
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   addDriveFile(name,'~200 KB','📄','synced');
   toast('Whiteboard saved as PNG','📄');
 }
@@ -1920,7 +1922,8 @@ function exportChat(){
   const blob=new Blob([lines||'(empty chat)'],{type:'text/plain'});
   const url=URL.createObjectURL(blob);
   const name='chat_'+S.roomId+'.txt';
-  const a=document.createElement('a');a.href=url;a.download=name;a.click();
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   addDriveFile(name,formatBytes(blob.size),'💬','synced');
   toast('Chat transcript saved','💬');
 }
@@ -1929,7 +1932,8 @@ function exportPollResults(){
   const blob=new Blob([data||'[]'],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const name='polls_'+S.roomId+'.json';
-  const a=document.createElement('a');a.href=url;a.download=name;a.click();
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   addDriveFile(name,formatBytes(blob.size),'📊','synced');
   toast('Poll results saved','📊');
 }
