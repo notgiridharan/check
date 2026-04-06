@@ -3663,7 +3663,7 @@ function _aiStopTile(tileId) {
   if (tile) {
     tile.classList.remove('ai-active');
     const c = tile.querySelector('.vtile-ai-canvas');
-    if (c) c.style.display = 'none';
+    if (c) c.style.display = '';
   }
 }
 
