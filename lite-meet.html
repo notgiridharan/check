@@ -1865,32 +1865,66 @@ function toggleRec(){
     }
   }
 }
-function finishRecording(){
+async function finishRecording(){
   const status=document.getElementById('recStatus');
   const prog=document.getElementById('uploadProgress');
   const fill=document.getElementById('uploadFill');
   if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
-  status.textContent='Processing…';
+  
+  if(!S.recChunks.length){
+    status.textContent='Error';
+    toast('Recording failed (no stream captured)','❌');
+    return;
+  }
+
+  status.textContent='Uploading to AWS S3…';
   prog.style.display='block';fill.style.width='0%';
-  let p=0;
-  const t=setInterval(()=>{
-    p+=Math.random()*18+5;
-    if(p>=100){p=100;clearInterval(t);
-      status.textContent='Saved ✓';prog.style.display='none';
-      const fname='LiteMeet_'+S.roomId+'_'+new Date().toISOString().slice(0,10)+'.webm';
-      if(S.recChunks.length){
-        const blob=new Blob(S.recChunks,{type:'video/webm'});
-        const url=URL.createObjectURL(blob);
-        addDriveFile(fname,formatBytes(blob.size),'🎬','synced');
-        const a=document.createElement('a');a.href=url;a.download=fname;a.click();
-        toast('Recording saved: '+fname,'💾');
-      } else {
-        addDriveFile(fname,'~0 KB','🎬','synced');
-        toast('Recording saved (no stream captured)','💾');
-      }
-    }
-    fill.style.width=Math.min(p,100)+'%';
-  },200);
+  
+  // Fake progressive fill until upload completes
+  let p = 0;
+  const t = setInterval(() => { p += Math.random() * 5 + 1; if (p > 90) p = 90; fill.style.width = p + '%'; }, 300);
+
+  try {
+    const blob = new Blob(S.recChunks, { type: 'video/webm' });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileName = 'LiteMeet_' + S.roomId + '_' + timestamp + '.webm';
+    
+    // Dynamic import AWS SDK v3
+    const { S3Client, PutObjectCommand } = await import('https://esm.sh/@aws-sdk/client-s3');
+    
+    const s3Client = new S3Client({
+      region: "ap-south-1",
+      credentials: {
+        accessKeyId: "AKIAXKTBQEI7XN4LUIBD", 
+        secretAccessKey: "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",
+      },
+    });
+
+    const params = {
+      Bucket: "my-screen-recordings-2026",
+      Key: fileName,
+      Body: blob,
+      ContentType: "video/webm",
+    };
+
+    await s3Client.send(new PutObjectCommand(params));
+    
+    clearInterval(t);
+    fill.style.width = '100%';
+    status.textContent = 'Uploaded ✓';
+    setTimeout(() => { prog.style.display = 'none'; }, 1000);
+    
+    const fileUrl = `https://${params.Bucket}.s3.ap-south-1.amazonaws.com/${fileName}`;
+    addDriveFile(fileName, formatBytes(blob.size), '☁️', 'uploaded');
+    toast('Recording uploaded to S3!', '✅');
+    console.log("Upload URL:", fileUrl);
+    
+  } catch (err) {
+    clearInterval(t);
+    status.textContent = 'Upload Failed';
+    toast('S3 Upload Error: ' + err.message, '❌');
+    console.error("S3 Upload Failed:", err);
+  }
 }
 function addDriveFile(name,size,icon,status){
   S.driveFiles.unshift({name,size,icon,status});
