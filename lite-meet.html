@@ -150,12 +150,10 @@ select.form-input option{background:var(--surface2)}
 .session-timer{font-size:.7rem;color:var(--text3);font-weight:600;letter-spacing:.04em;padding:.18rem .5rem;background:var(--surface2);border:1px solid var(--border);border-radius:20px;flex-shrink:0;cursor:pointer;user-select:none}
 .session-timer.warn{color:var(--amber);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.06)}
 .session-timer.danger{color:var(--red);border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.06)}
-/* 3G pixelated mode — low-res stream scaled up with nearest-neighbor, no blur */
-.net-3g video,
-.net-3g .vtile-ai-canvas{
-  image-rendering: pixelated;
-  image-rendering: -moz-crisp-edges;
-  image-rendering: crisp-edges;
+/* 3G mode — ~320p stream with soft blur, faces still recognisable */
+.net-3g video {
+  filter: blur(1.5px);
+  -webkit-filter: blur(1.5px);
 }
 .hand-queue{display:flex;flex-direction:column;gap:.3rem;padding:.5rem .65rem;border-bottom:1px solid var(--border);flex-shrink:0;min-height:0}
 .hand-item{display:flex;align-items:center;gap:.5rem;padding:.3rem .45rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--r2)}
@@ -3237,21 +3235,21 @@ function initWebRTC() {
   LM.connect(S.localStream);
 }
 
-// _attachStream: safely bind a WebRTC stream to a <video> element.
-// Waits for loadedmetadata before calling play() — prevents frozen video
-// after reconnect or signal-mode switching where play() would silently fail.
+// _attachStream: bind a WebRTC stream to <video> and guarantee playback.
+// Remote tracks start 'muted' (no data yet) when first received — the
+// browser won't decode anything until the first keyframe arrives and the
+// track fires 'unmute'. Hooking onunmute is the reliable fix for the
+// black/frozen video seen after reconnect or a signal mode switch.
 function _attachStream(v, stream) {
-  if (v._lmMeta) v.removeEventListener('loadedmetadata', v._lmMeta);
   v.srcObject = stream;
   v.muted = false;
-  const doPlay = () => {
-    v.play().catch(() => {
-      const resume = () => { v.play().catch(() => {}); };
-      document.addEventListener('click', resume, { once: true });
-    });
-  };
-  if (v.readyState >= 1) { doPlay(); }
-  else { v._lmMeta = doPlay; v.addEventListener('loadedmetadata', v._lmMeta, { once: true }); }
+  const tryPlay = () => v.play().catch(() => {});
+  // Try immediately (succeeds when tracks already have data)
+  tryPlay();
+  // Re-trigger play when each track un-mutes (first keyframe arrives)
+  stream.getTracks().forEach(t => { t.onunmute = tryPlay; });
+  // Re-trigger play if the stream stalls mid-session
+  v.onstalled = tryPlay;
 }
 
 // ── Remote video tiles ────────────────────────────────

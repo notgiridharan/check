@@ -339,12 +339,12 @@
             sender.track.enabled = profile.videoEnabled;
 
             if (profileName === 'mid') {
-              // 3G: heavy resolution downscale — quarter res (180p from 720p).
-              // Low data = no packet drops = no stutter. Looks pixelated, plays smoothly.
-              enc.scaleResolutionDownBy = 4;
-              enc.maxFramerate = 24;      // stable 24fps, not choppy
+              // 3G: ~320p (2.25x downscale from 720p) — blurry but faces still recognisable.
+              // Lower res = less data = smooth delivery without stutter.
+              enc.scaleResolutionDownBy = 2.25;
+              enc.maxFramerate = 24;
             } else if (profile.videoEnabled) {
-              // 4G / WiFi: full resolution, no artificial frame-rate cap
+              // 4G / WiFi: full resolution
               delete enc.scaleResolutionDownBy;
               delete enc.maxFramerate;
             }
