@@ -176,6 +176,7 @@ select.form-input option{background:var(--surface2)}
 .install-btn{background:var(--blue);color:#fff;border:none;border-radius:var(--r3);padding:.4rem .75rem;font-family:var(--sans);font-size:.75rem;font-weight:600;cursor:pointer;white-space:nowrap}
 .install-dismiss{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:.2rem;flex-shrink:0}
 .vtile video{width:100%;height:100%;object-fit:cover;display:block;background:#000}
+#localTile .vtile-ai-canvas{transform:scaleX(-1)}
 .vtile-avatar{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;background:var(--surface)}
 .avatar-ring{width:52px;height:52px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:600;color:#fff}
 .vtile-label{position:absolute;bottom:0;left:0;right:0;padding:.45rem .6rem;background:linear-gradient(transparent,rgba(0,0,0,.65));display:flex;align-items:center;gap:.35rem}
@@ -1449,10 +1450,12 @@ function _applyNetProfile(profile, force) {
     }
   }
 
-  // Show/hide 2G overlay on all remote tiles
+  // Show/hide 2G overlay on all remote tiles and fully halt video
   document.querySelectorAll('.vtile').forEach(tile => {
     if (tile.id === 'localTile') return;
     let ov = tile.querySelector('.vtile-2g-overlay');
+    const v = tile.querySelector('video');
+    
     if (profile === 'bad') {
       if (!ov) {
         ov = document.createElement('div');
@@ -1460,8 +1463,22 @@ function _applyNetProfile(profile, force) {
         ov.innerHTML = '<div class="vtile-2g-icon">🔇</div><div class="vtile-2g-txt">2G · Audio only<br>6 kbps</div>';
         tile.appendChild(ov);
       }
+      // Fully pause the video element to stop local decoding processing
+      if (v && !v.paused) v.pause();
+      if (v) v.style.display = 'none';
+      
+      // Hide AI canvas if active
+      const aiC = tile.querySelector('.vtile-ai-canvas');
+      if (aiC) aiC.style.display = 'none';
     } else {
       if (ov) ov.remove();
+      if (v) {
+        v.style.display = 'block';
+        v.play().catch(() => {});
+      }
+      // Restore AI canvas visibility
+      const aiC = tile.querySelector('.vtile-ai-canvas');
+      if (aiC && tile.classList.contains('ai-active')) aiC.style.display = '';
     }
   });
 
@@ -1796,12 +1813,37 @@ function toggleRec(){
       }
     },1000);
     if(S.localStream){
-      try{
-        const mime=MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')?'video/webm;codecs=vp9,opus':'video/webm';
-        S.mediaRecorder=new MediaRecorder(S.localStream,{mimeType:mime});
-        S.mediaRecorder.ondataavailable=e=>{if(e.data.size>0)S.recChunks.push(e.data);};
+      try {
+        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+        
+        // Mix all audio tracks via Web Audio API so remote peers are recorded
+        S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const dest = S.recAudioCtx.createMediaStreamDestination();
+        
+        if (S.localStream.getAudioTracks().length > 0) {
+          S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
+        }
+        if (window.LM && window.LM._peers) {
+          window.LM._peers.forEach(peer => {
+            if (peer.pc) {
+              peer.pc.getReceivers().forEach(r => {
+                if (r.track && r.track.kind === 'audio') {
+                   try { S.recAudioCtx.createMediaStreamSource(new MediaStream([r.track])).connect(dest); } catch(e){}
+                }
+              });
+            }
+          });
+        }
+        
+        const tracks = [];
+        if (S.localStream.getVideoTracks().length > 0) tracks.push(S.localStream.getVideoTracks()[0]);
+        if (dest.stream.getAudioTracks().length > 0) tracks.push(dest.stream.getAudioTracks()[0]);
+        const mixedStream = new MediaStream(tracks);
+
+        S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
+        S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
         S.mediaRecorder.start(1000);
-      }catch(e){toast('Recording error: '+e.message,'❌');}
+      } catch(e) { toast('Recording error: ' + e.message, '❌'); }
     }
     if(recLimitMin>0){
       toast('Recording started · '+recLimitMin+'min limit','⏺');
@@ -1827,6 +1869,7 @@ function finishRecording(){
   const status=document.getElementById('recStatus');
   const prog=document.getElementById('uploadProgress');
   const fill=document.getElementById('uploadFill');
+  if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
   status.textContent='Processing…';
   prog.style.display='block';fill.style.width='0%';
   let p=0;
@@ -1919,7 +1962,9 @@ function sizeWb(){
 }
 function wbPos(e){const r=document.getElementById('wbCanvas').getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
 function wbDown(e){
-  wbDrawing=true;const p=wbPos(e);wbLast={...p};wbStartPos={...p};
+  const p=wbPos(e);
+  if(S.wbTool==='text'){ wbTextInput(e); return; }
+  wbDrawing=true; wbLast={...p};wbStartPos={...p};
   const c=document.getElementById('wbCanvas');
   wbSnap=wbCtx.getImageData(0,0,c.width,c.height);
   if(S.wbTool==='pen'||S.wbTool==='eraser'){wbCtx.beginPath();wbCtx.moveTo(p.x,p.y);S.wbStrokes.push({tool:S.wbTool,color:S.wbColor,sz:wbSz,pts:[{...p}]});}
@@ -1943,19 +1988,48 @@ function wbMove(e){
 function wbTextInput(e){
   if(S.wbTool!=='text')return;const p=wbPos(e);
   const txt=prompt('Enter text:','');if(!txt)return;
-  const fs=Math.max(14,wbSz*5);wbCtx.font=fs+'px Albert Sans';wbCtx.fillStyle=S.wbColor;wbCtx.fillText(txt,p.x,p.y);
-  S.wbStrokes.push({tool:'text',color:S.wbColor,sz:wbSz,txt,x:p.x,y:p.y});
+  const stroke = {tool:'text',color:S.wbColor,sz:wbSz,txt,x:p.x,y:p.y};
+  S.wbStrokes.push(stroke);
+  redrawWb();
+  if (window.LM) window.LM.send('wb-stroke', stroke);
 }
 function redrawWb(){
   if(!wbCtx)return;const c=document.getElementById('wbCanvas');wbCtx.clearRect(0,0,c.width,c.height);
   S.wbStrokes.forEach(s=>{
     wbCtx.strokeStyle=s.tool==='eraser'?'#111116':s.color;wbCtx.fillStyle=s.color;wbCtx.lineWidth=s.tool==='eraser'?s.sz*4:s.sz;wbCtx.lineCap='round';wbCtx.lineJoin='round';
-    if(s.tool==='pen'||s.tool==='eraser'){wbCtx.beginPath();s.pts.forEach((p,i)=>i===0?wbCtx.moveTo(p.x,p.y):wbCtx.lineTo(p.x,p.y));wbCtx.stroke();}
+    if(s.tool==='pen'||s.tool==='eraser'){wbCtx.beginPath();if(s.pts&&s.pts.length)s.pts.forEach((p,i)=>i===0?wbCtx.moveTo(p.x,p.y):wbCtx.lineTo(p.x,p.y));wbCtx.stroke();}
     else if(s.tool==='line'){wbCtx.beginPath();wbCtx.moveTo(s.start.x,s.start.y);wbCtx.lineTo(s.end.x,s.end.y);wbCtx.stroke();}
     else if(s.tool==='rect'){wbCtx.beginPath();wbCtx.rect(s.start.x,s.start.y,s.end.x-s.start.x,s.end.y-s.start.y);wbCtx.stroke();}
     else if(s.tool==='circle'){const rx=(s.end.x-s.start.x)/2,ry=(s.end.y-s.start.y)/2;wbCtx.beginPath();wbCtx.ellipse(s.start.x+rx,s.start.y+ry,Math.abs(rx),Math.abs(ry),0,0,Math.PI*2);wbCtx.stroke();}
     else if(s.tool==='text'){wbCtx.font=Math.max(14,s.sz*5)+'px Albert Sans';wbCtx.fillText(s.txt,s.x,s.y);}
   });
+}
+function applyRemoteWbStroke(data) {
+  S.wbStrokes.push(data);
+  redrawWb();
+}
+function wbUp(e) {
+  if (!wbDrawing) return;
+  wbDrawing = false;
+  if (S.wbTool !== 'pen' && S.wbTool !== 'eraser' && S.wbTool !== 'text' && wbSnap) {
+    const s = { tool: S.wbTool, color: S.wbColor, sz: wbSz, start: wbStartPos, end: wbLast };
+    S.wbStrokes.push(s);
+  }
+  if (S.wbStrokes.length && window.LM) {
+    window.LM.send('wb-stroke', S.wbStrokes[S.wbStrokes.length - 1]);
+  }
+  redrawWb();
+}
+function wbUndo() {
+  if (!S.wbStrokes.length) return;
+  S.wbStrokes.pop();
+  redrawWb();
+  if (window.LM) window.LM.send('wb-undo', {});
+}
+function wbClear() {
+  S.wbStrokes = [];
+  redrawWb();
+  if (window.LM) window.LM.send('wb-clear', {});
 }
 function wbTool(t,el){S.wbTool=t;document.querySelectorAll('.wb-btn[id^="wbt-"]').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
 function wbColor(c,el){S.wbColor=c;document.querySelectorAll('.wbc').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
@@ -2127,8 +2201,16 @@ async function _loadDocLocal(idx) {
       let pdfData;
       if (doc.url && doc.url.startsWith('blob:')) {
         // Fast path: blob URL — just fetch() it (same-origin, no CORS issue)
-        const res  = await fetch(doc.url);
-        pdfData = await res.arrayBuffer();
+        try {
+          const res  = await fetch(doc.url);
+          pdfData = await res.arrayBuffer();
+        } catch(e) {
+          // Fallback if WebView/browser blocks fetch(blob:)
+          if (doc.b64) {
+             const { bytes } = _dataURItoBytes(doc.b64);
+             pdfData = bytes.buffer;
+          } else throw e;
+        }
       } else if (doc.b64 && doc.b64.startsWith('data:')) {
         // Decode base64 without fetch() to avoid data-URI CORS blocks
         const { bytes } = _dataURItoBytes(doc.b64);
@@ -2516,7 +2598,7 @@ function renderPoll(poll){
   const res=document.getElementById('pollResults');
   const d=document.createElement('div');d.className='poll-card';d.id='poll-'+poll.id;
   d.innerHTML='<div class="poll-q">'+poll.q+'</div>'+
-    poll.opts.map((o,i)=>'<div class="poll-opt" onclick="votePoll('+poll.id+','+i+')">'
+    poll.opts.map((o,i)=>'<div class="poll-opt" onclick="votePoll(\''+poll.id+'\','+i+')">'
       +'<input type="radio" name="p-'+poll.id+'" value="'+i+'">'
       +'<span class="poll-opt-name">'+o+'</span>'
       +'<div class="poll-bar-bg"><div class="poll-bar-fill" id="pb-'+poll.id+'-'+i+'" style="width:0%"></div></div>'
@@ -3455,6 +3537,8 @@ function votePoll(id, idx) {
   if (!poll || poll.done) return;
   poll.done = true; poll.votes[idx]++; poll.total++;
   updatePollBars(poll);
+  const rad = document.querySelector('input[name="p-'+id+'"][value="'+idx+'"]');
+  if (rad) rad.checked = true;
   if (LM) LM.send('poll-vote', { pollId: id, optIdx: idx });
   else toast('Vote recorded · 42 bytes', '✅');
 }
