@@ -1812,39 +1812,62 @@ function toggleRec(){
         timer.style.color='';
       }
     },1000);
-    if(S.localStream){
-      try {
-        const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
-        
-        // Mix all audio tracks via Web Audio API so remote peers are recorded
-        S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const dest = S.recAudioCtx.createMediaStreamDestination();
-        
-        if (S.localStream.getAudioTracks().length > 0) {
-          S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
-        }
-        if (window.LM && window.LM._peers) {
-          window.LM._peers.forEach(peer => {
-            if (peer.pc) {
-              peer.pc.getReceivers().forEach(r => {
-                if (r.track && r.track.kind === 'audio') {
-                   try { S.recAudioCtx.createMediaStreamSource(new MediaStream([r.track])).connect(dest); } catch(e){}
-                }
-              });
-            }
-          });
-        }
-        
-        const tracks = [];
-        if (S.localStream.getVideoTracks().length > 0) tracks.push(S.localStream.getVideoTracks()[0]);
-        if (dest.stream.getAudioTracks().length > 0) tracks.push(dest.stream.getAudioTracks()[0]);
-        const mixedStream = new MediaStream(tracks);
+    try {
+      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+      
+      // Mix all audio tracks via Web Audio API so remote peers are recorded
+      S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = S.recAudioCtx.createMediaStreamDestination();
+      
+      if (S.localStream && S.localStream.getAudioTracks().length > 0) {
+        S.recAudioCtx.createMediaStreamSource(new MediaStream(S.localStream.getAudioTracks())).connect(dest);
+      }
+      if (window.LM && window.LM._peers) {
+        window.LM._peers.forEach(peer => {
+          if (peer.pc) {
+            peer.pc.getReceivers().forEach(r => {
+              if (r.track && r.track.kind === 'audio') {
+                 try { S.recAudioCtx.createMediaStreamSource(new MediaStream([r.track])).connect(dest); } catch(e){}
+              }
+            });
+          }
+        });
+      }
+      
+      const tracks = [];
+      // Guarantee a video track exists and is actively producing frames, else MediaRecorder hangs
+      let hasVideo = false;
+      if (S.localStream && S.localStream.getVideoTracks().length > 0) {
+         const vt = S.localStream.getVideoTracks()[0];
+         if (vt.enabled && vt.readyState !== 'ended') {
+            tracks.push(vt);
+            hasVideo = true;
+         }
+      }
+      
+      if (!hasVideo) {
+         // Create a synthetic black video stream to force MediaRecorder to initialize successfully
+         const c = document.createElement('canvas');
+         c.width = 640; c.height = 480;
+         const ctx = c.getContext('2d');
+         ctx.fillRect(0, 0, 640, 480);
+         const dummyStream = c.captureStream(15);
+         tracks.push(dummyStream.getVideoTracks()[0]);
+         
+         // Periodically paint to keep the stream tracks emitting frames
+         S.recDummyTick = setInterval(() => {
+           ctx.fillRect(0, 0, 640, 480);
+           ctx.fillStyle = Date.now() % 1000 > 500 ? '#111' : '#000';
+         }, 1000);
+      }
 
-        S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
-        S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
-        S.mediaRecorder.start(1000);
-      } catch(e) { toast('Recording error: ' + e.message, '❌'); }
-    }
+      if (dest.stream.getAudioTracks().length > 0) tracks.push(dest.stream.getAudioTracks()[0]);
+      const mixedStream = new MediaStream(tracks);
+
+      S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
+      S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
+      S.mediaRecorder.start(1000);
+    } catch(e) { toast('Recording error: ' + e.message, '❌'); }
     if(recLimitMin>0){
       toast('Recording started · '+recLimitMin+'min limit','⏺');
     } else {
@@ -1870,6 +1893,7 @@ async function finishRecording(){
   const prog=document.getElementById('uploadProgress');
   const fill=document.getElementById('uploadFill');
   if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
+  if (S.recDummyTick) { clearInterval(S.recDummyTick); S.recDummyTick = null; }
   
   if(!S.recChunks.length){
     status.textContent='Error';
