@@ -1822,6 +1822,7 @@ async function toggleRec(){
       const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
       S.mediaRecorder = new MediaRecorder(mixedStream, { mimeType: mime });
       S.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) S.recChunks.push(e.data); };
+      S.mediaRecorder.onerror = e => { console.error("MediaRecorder Error:", e); toast("Recording error: " + e.message, "❌"); };
       
       // Handle "Stop Sharing" button in browser UI
       screenStream.getVideoTracks()[0].onended = () => { if(S.recOn) toggleRec(); };
@@ -1864,12 +1865,6 @@ async function toggleRec(){
     } else {
       finishRecording();
     }
-    
-    // Stop all tracks in screen stream
-    if (S.recStream) {
-       S.recStream.getTracks().forEach(t => t.stop());
-       S.recStream = null;
-    }
   }
 }
 
@@ -1878,13 +1873,17 @@ async function finishRecording(){
   const prog=document.getElementById('uploadProgress');
   const fill=document.getElementById('uploadFill');
   if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
-  if (S.recDummyTick) { clearInterval(S.recDummyTick); S.recDummyTick = null; }
   
   if(!S.recChunks.length){
+    // Cleanup screen tracks even on failure
+    if (S.recStream) { S.recStream.getTracks().forEach(t => t.stop()); S.recStream = null; }
     status.textContent='Error';
-    toast('Recording failed (no stream captured)','❌');
+    toast('Recording failed (no stream processed)','❌');
     return;
   }
+  
+  // Cleanup screen tracks after we know we have data
+  if (S.recStream) { S.recStream.getTracks().forEach(t => t.stop()); S.recStream = null; }
 
   status.textContent='Uploading to AWS S3…';
   prog.style.display='block';fill.style.width='0%';
