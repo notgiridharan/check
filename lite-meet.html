@@ -1383,6 +1383,16 @@ function refreshSessionsGrid() {
   if(!g) return;
   
   let html = '';
+  // Teacher Schedule Button
+  if (S.role === 'host') {
+    html += `
+      <div class="dash-card" style="border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer" onclick="openStartModal()">
+        <div style="font-size:1.5rem">➕</div>
+        <div style="font-weight:600; margin-top:.5rem">Schedule Session</div>
+      </div>
+    `;
+  }
+  
   window._activeSessions.forEach((s, idx) => {
     const isLive = s.isLive || s.time === 'Live Now';
     const canStart = S.role === 'host' && !isLive;
@@ -1453,8 +1463,8 @@ function refreshAssignmentsGrid() {
         </div>
         <div style="font-size:1rem;font-weight:600;margin:.4rem 0">${a.title}</div>
         <p style="font-size:0.75rem;color:var(--text2)">${a.desc}</p>
-        <button class="btn-xs ${a.status==='Submitted'?'ghost':'primary'}" style="margin-top:0.8rem;border-radius:10px" ${a.status==='Submitted'?'disabled':''} onclick="submitManualAssign(${a.id})">
-          ${a.status==='Submitted'?'✓ Submitted':'Submit Assignment'}
+        <button class="btn-xs ${a.status.includes('Submitted')?'ghost':'primary'}" style="margin-top:0.8rem;border-radius:10px" ${a.status.includes('Submitted')?'disabled':''} onclick="submitManualAssign(${a.id})">
+          ${a.status.includes('Submitted')?'✓ Submitted':'Submit Assignment'}
         </button>
       </div>
     `;
@@ -1464,13 +1474,21 @@ function refreshAssignmentsGrid() {
 }
 
 function submitManualAssign(id) {
-  const a = window._activeAssignments.find(x => x.id === id);
-  if (a) {
-    a.status = 'Submitted';
-    saveLMS();
-    refreshAssignmentsGrid();
-    toast('Assignment submitted!', '✅');
-  }
+  const fileInp = document.createElement('input');
+  fileInp.type = 'file';
+  fileInp.accept = '.pdf, image/*';
+  fileInp.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const a = window._activeAssignments.find(x => x.id === id);
+    if (a) {
+      a.status = 'Submitted (' + file.name + ')';
+      saveLMS();
+      refreshAssignmentsGrid();
+      toast('Assignment submitted! (' + file.name + ')', '✅');
+    }
+  };
+  fileInp.click();
 }
 
 
@@ -2514,15 +2532,50 @@ function renderDriveFiles(){
     </div>`).join('');
 }
 function exportWhiteboard(){
-  const c=document.getElementById('wbCanvas');
-  const url=c.toDataURL('image/png');
-  const name=(S.sessionTopic||'Notes')+'_'+new Date().toISOString().slice(0,10)+'.png';
-  const a=document.createElement('a');a.href=url;a.download=name;
+  // Calculate bounding box of all strokes to ensure no cropping
+  let maxW = 1200, maxH = 800; // minimum size
+  S.wbStrokes.forEach(s => {
+    if(s.pts) s.pts.forEach(p => { maxW = Math.max(maxW, p.x + 50); maxH = Math.max(maxH, p.y + 50); });
+    if(s.end){ maxW = Math.max(maxW, s.end.x + 50, s.start.x + 50); maxH = Math.max(maxH, s.end.y + 50, s.start.y + 50); }
+    if(s.x){ maxW = Math.max(maxW, s.x + 300); maxH = Math.max(maxH, s.y + 50); }
+  });
+
+  const offC = document.createElement('canvas');
+  offC.width = maxW; 
+  offC.height = maxH;
+  const offCtx = offC.getContext('2d');
+  
+  // Fill dark background matching LiteMeet theme
+  offCtx.fillStyle = '#0d1117';
+  offCtx.fillRect(0, 0, maxW, maxH);
+  
+  // Render strokes
+  S.wbStrokes.forEach(s => {
+    offCtx.strokeStyle = s.tool === 'eraser' ? '#0d1117' : s.color;
+    offCtx.fillStyle = s.color;
+    offCtx.lineWidth = s.tool === 'eraser' ? s.sz * 4 : s.sz;
+    offCtx.lineCap = 'round';
+    offCtx.lineJoin = 'round';
+    
+    if(s.tool === 'pen' || s.tool === 'eraser') {
+      offCtx.beginPath();
+      if(s.pts && s.pts.length) s.pts.forEach((p, i) => i === 0 ? offCtx.moveTo(p.x, p.y) : offCtx.lineTo(p.x, p.y));
+      offCtx.stroke();
+    }
+    else if(s.tool === 'line'){ offCtx.beginPath(); offCtx.moveTo(s.start.x, s.start.y); offCtx.lineTo(s.end.x, s.end.y); offCtx.stroke(); }
+    else if(s.tool === 'rect'){ offCtx.beginPath(); offCtx.rect(s.start.x, s.start.y, s.end.x - s.start.x, s.end.y - s.start.y); offCtx.stroke(); }
+    else if(s.tool === 'circle'){ const rx = (s.end.x - s.start.x) / 2, ry = (s.end.y - s.start.y) / 2; offCtx.beginPath(); offCtx.ellipse(s.start.x + rx, s.start.y + ry, Math.abs(rx), Math.abs(ry), 0, 0, Math.PI * 2); offCtx.stroke(); }
+    else if(s.tool === 'text'){ offCtx.font = Math.max(14, s.sz * 5) + 'px Albert Sans'; offCtx.fillText(s.txt, s.x, s.y); }
+  });
+
+  const url = offC.toDataURL('image/png');
+  const name = (S.sessionTopic || 'Notes') + '_' + new Date().toISOString().slice(0, 10) + '.png';
+  const a = document.createElement('a'); a.href = url; a.download = name;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  addDriveFile(name,'~200 KB','📄','synced');
+  addDriveFile(name, '~200 KB', '📄', 'synced');
   window._savedNotes.push({name: name, url: url, time: new Date().toLocaleTimeString()});
   refreshNotesGrid();
-  toast('Whiteboard auto-synced to LMS','📄');
+  toast('Whiteboard auto-synced to LMS', '📄');
 }
 function refreshNotesGrid() {
   const g = document.getElementById('notesGrid');
