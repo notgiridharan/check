@@ -527,8 +527,12 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 .mc-meta{font-size:.7rem;color:var(--text3)}
 
 /* Start Class Modal */
-#startModal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;display:none;align-items:center;justify-content:center}
-#startModal.show{display:flex}
+#startModal, #assignModal {
+  position:fixed; inset:0; z-index:9000;
+  background:rgba(0,0,0,0.8); backdrop-filter:blur(10px);
+  display:none; align-items:center; justify-content:center;
+}
+#startModal.show, #assignModal.show { display:flex; }
 .start-dialog{background:var(--surface);border-radius:var(--r);padding:2rem;width:90%;max-width:400px;box-shadow:var(--shadow)}
 </style>
 </head>
@@ -1046,15 +1050,60 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 <!-- START CLASS MODAL -->
 <div id="startModal">
   <div class="start-dialog">
-    <h3 style="font-family:var(--sans);font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.5rem">Start New Session</h3>
-    <p style="font-size:.8rem;color:var(--text2);margin-bottom:1.5rem">Enter the curriculum topic for today's class. All generated notes and lecture recordings will be saved under this session name.</p>
+    <h3 style="font-family:var(--sans);font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.5rem">Meeting Scheduler</h3>
+    <p style="font-size:.8rem;color:var(--text2);margin-bottom:1rem">Configure your module topic and Room ID.</p>
     <div class="form-group" style="text-align:left">
       <label class="form-label" style="margin-bottom:.4rem">Class Topic / Name</label>
       <input type="text" id="sessionTopicInp" class="form-input" style="border-radius:14px;background:var(--surface2)" placeholder="e.g. Intro to Machine Learning">
     </div>
+    <div class="form-group" style="text-align:left; margin-top:1rem">
+      <label class="form-label" style="margin-bottom:.4rem">Manual Room ID (Optional)</label>
+      <input type="text" id="sessionRoomIdInp" class="form-input" style="border-radius:14px;background:var(--surface2)" placeholder="e.g. MATH-101">
+    </div>
+    <div style="display:grid;grid-template-columns:100px 1fr;gap:.8rem;margin-top:1rem;text-align:left;align-items:center">
+      <label class="form-label" style="margin-bottom:0">Future Start</label>
+      <div style="display:flex;gap:.5rem">
+        <input type="date" id="schDate" class="form-input" style="font-size:.75rem;padding:.5rem;border-radius:10px">
+        <input type="time" id="schTime" class="form-input" style="font-size:.75rem;padding:.5rem;border-radius:10px">
+      </div>
+    </div>
     <div style="display:flex;gap:.5rem;margin-top:1.5rem">
       <button class="btn-xs ghost" style="flex:1;padding:.6rem;font-size:.8rem;border-radius:20px" onclick="closeStartModal()">Cancel</button>
-      <button class="btn-join" style="flex:1;padding:.6rem;font-size:.8rem;border-radius:20px;margin-top:0" onclick="confirmStartClass()">Start Class</button>
+      <button class="btn-xs ghost" style="flex:1.2;padding:.6rem;font-size:.8rem;border-radius:20px" onclick="confirmStartClass(true)">Schedule Later</button>
+      <button class="btn-join" style="flex:1.2;padding:.6rem;font-size:.8rem;border-radius:20px;margin-top:0" onclick="confirmStartClass(false)">Start Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE ASSIGNMENT MODAL -->
+<div id="assignModal">
+  <div class="start-dialog" style="max-width:400px">
+    <h3 style="font-family:var(--sans);font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.5rem">Create New Assignment</h3>
+    <div class="form-group" style="text-align:left">
+      <label class="form-label" style="margin-bottom:.4rem">Assignment Title</label>
+      <input type="text" id="asTtl" class="form-input" style="border-radius:14px;background:var(--surface2)" placeholder="e.g. Calculus Problem Set 1">
+    </div>
+    <div class="form-group" style="text-align:left; margin-top:1rem">
+      <label class="form-label" style="margin-bottom:.4rem">Description</label>
+      <textarea id="asDesc" class="form-input" style="border-radius:14px;background:var(--surface2);min-height:80px;font-family:inherit;padding:.6rem" placeholder="Provide instructions..."></textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
+      <div class="form-group" style="text-align:left">
+        <label class="form-label" style="margin-bottom:.4rem">Deadline Date</label>
+        <input type="date" id="asDue" class="form-input" style="border-radius:14px;background:var(--surface2)">
+      </div>
+      <div class="form-group" style="text-align:left">
+        <label class="form-label" style="margin-bottom:.4rem">Severity</label>
+        <select id="asSev" class="form-input" style="border-radius:14px;background:var(--surface2)">
+          <option value="var(--red)">Critical</option>
+          <option value="var(--blue)">Regular</option>
+          <option value="var(--green)">Optional</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:.5rem;margin-top:1.5rem">
+      <button class="btn-xs ghost" style="flex:1;padding:.6rem;font-size:.8rem;border-radius:20px" onclick="closeAssignModal()">Cancel</button>
+      <button class="btn-join" style="flex:1;padding:.6rem;font-size:.8rem;border-radius:20px;margin-top:0" onclick="confirmCreateAssignment()">Post Assignment</button>
     </div>
   </div>
 </div>
@@ -1135,6 +1184,13 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 <script>
 window._savedLectures = [];
 window._savedNotes = [];
+window._activeSessions = JSON.parse(localStorage.getItem('_activeSessions')) || [];
+window._activeAssignments = JSON.parse(localStorage.getItem('_activeAssignments')) || [];
+
+function saveLMS() {
+  localStorage.setItem('_activeSessions', JSON.stringify(window._activeSessions));
+  localStorage.setItem('_activeAssignments', JSON.stringify(window._activeAssignments));
+}
 
 function switchView(vid, btnEl) {
   document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -1143,6 +1199,10 @@ function switchView(vid, btnEl) {
   const navBtns = document.querySelectorAll('.spa-nbtn');
   if(navBtns.length) navBtns.forEach(b => b.classList.remove('active'));
   if(btnEl) btnEl.classList.add('active');
+  
+  if(vid === 'scheduleView') refreshSessionsGrid();
+  if(vid === 'assignmentsView') refreshAssignmentsGrid();
+  if(vid === 'dashboardView') refreshDashboardUI();
 }
 
 function processLogin() {
@@ -1168,6 +1228,20 @@ function processLogin() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appWrapper').classList.add('active');
   switchView('dashboardView', document.querySelector('.spa-nbtn'));
+  initLMSMonitoring();
+}
+
+function initLMSMonitoring() {
+  let lastCount = window._activeSessions.length;
+  setInterval(() => {
+    // Mock polling: in same browser session, check if teacher started a session
+    if (S.role === 'student' && window._activeSessions.length > lastCount) {
+      const live = window._activeSessions[0];
+      toast('LIVE: ' + live.topic + ' has started!', '🎥');
+      lastCount = window._activeSessions.length;
+      refreshDashboardUI();
+    }
+  }, 3000);
 }
 
 function openStartModal() {
@@ -1177,13 +1251,196 @@ function closeStartModal() {
   document.getElementById('startModal').classList.remove('show');
 }
 
-function confirmStartClass() {
+function openAssignModal() {
+  document.getElementById('assignModal').classList.add('show');
+}
+function closeAssignModal() {
+  document.getElementById('assignModal').classList.remove('show');
+}
+
+function confirmStartClass(isFuture) {
   const topic = document.getElementById('sessionTopicInp').value.trim() || 'General Session';
+  const mid = document.getElementById('sessionRoomIdInp').value.trim() || 'RM-' + Math.random().toString(36).slice(2,6).toUpperCase();
+  
   S.sessionTopic = topic;
+  S.manualRoomId = mid;
+  
+  let timeStr = 'Live Now';
+  if (isFuture) {
+    const d = document.getElementById('schDate').value;
+    const t = document.getElementById('schTime').value;
+    if (d && t) timeStr = `${d} at ${t}`;
+    else if (d) timeStr = d;
+  }
+
+  // Persist session
+  window._activeSessions.unshift({ topic, roomId: mid, teacher: S.name, time: timeStr, isLive: !isFuture });
+  saveLMS();
+  
   closeStartModal();
-  S.sessionDurMin = 60; // Host cap requested
+  S.sessionDurMin = 60;
+  
+  if (!isFuture) {
+    joinRoom();
+  } else {
+    refreshSessionsGrid();
+    toast('Session scheduled: ' + timeStr, '📅');
+  }
+}
+
+function confirmCreateAssignment() {
+  const title = document.getElementById('asTtl').value.trim();
+  const desc = document.getElementById('asDesc').value.trim();
+  const due = document.getElementById('asDue').value.trim();
+  const sev = document.getElementById('asSev').value;
+  
+  if(!title) return;
+  
+  window._activeAssignments.unshift({ id: Date.now(), title, desc, due, sev, status: 'Pending' });
+  saveLMS();
+  closeAssignModal();
+  refreshAssignmentsGrid();
+  toast('New assignment posted!', '📝');
+}
+
+function refreshDashboardUI() {
+  const dashGrid = document.querySelector('#dashboardView .grid-cards');
+  if(!dashGrid) return;
+  
+  // Update Recent Activity with mock
+  const recentAct = dashGrid.querySelector('div[style*="grid-column: span 3"] div[style*="display:flex;flex-direction:column"]');
+  if (recentAct && S.role === 'host') {
+     // Teachers see their latest session at top if any
+     if (window._activeSessions.length) {
+       recentAct.innerHTML = `
+        <div style="display:flex;align-items:center;gap:1rem;padding-bottom:0.8rem;border-bottom:1px solid var(--border)">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--blue)"></div>
+          <div style="flex:1;font-size:0.85rem">You started session: "${window._activeSessions[0].topic}"</div>
+          <div style="font-size:0.75rem;color:var(--text3)">Just now</div>
+        </div>` + recentAct.innerHTML;
+     }
+  }
+
+  // Student Dashboard manual join card
+  if (S.role === 'student' && !document.getElementById('manualJoinCard')) {
+    const card = document.createElement('div');
+    card.id = 'manualJoinCard';
+    card.className = 'dash-card';
+    card.style.border = '1px solid var(--blue)';
+    card.innerHTML = `
+       <span class="t-label" style="color:var(--blue)">Manual Join</span>
+       <div style="margin-top:.6rem">
+         <input type="text" id="mJoinId" class="form-input" style="font-size:0.8rem;background:var(--surface2);border-radius:10px" placeholder="Enter Room ID">
+         <button class="btn-xs primary" style="width:100%;margin-top:0.6rem;border-radius:10px" onclick="manualStudentJoin()">Join Room</button>
+       </div>
+    `;
+    dashGrid.prepend(card);
+  }
+}
+
+function manualStudentJoin() {
+  const rid = document.getElementById('mJoinId').value.trim();
+  if(!rid) return;
+  S.roomId = rid;
+  S.sessionTopic = 'Private Session';
   joinRoom();
 }
+
+function refreshSessionsGrid() {
+  const g = document.getElementById('scheduleView').querySelector('.grid-cards');
+  if(!g) return;
+  
+  let html = '';
+  window._activeSessions.forEach((s, idx) => {
+    const isLive = s.isLive || s.time === 'Live Now';
+    const canStart = S.role === 'host' && !isLive;
+    
+    html += `
+      <div class="dash-card" style="border-left: 4px solid ${isLive ? 'var(--blue)' : 'var(--amber)'}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <span class="t-label" style="color:${isLive ? 'var(--blue)' : 'var(--amber)'}">${isLive ? 'Live Now' : 'Scheduled'}</span>
+          <span style="font-size:0.7rem;color:var(--text3)">${s.time} · ID: ${s.roomId}</span>
+        </div>
+        <div style="font-size:1rem;font-weight:600;margin:.4rem 0">${s.topic}</div>
+        <p style="font-size:0.75rem;color:var(--text2)">Instructor: ${s.teacher}</p>
+        
+        ${isLive ? `
+          <button class="btn-xs primary" style="margin-top:0.8rem;border-radius:10px" onclick="joinSpecificSession('${s.roomId}', '${s.topic}')">Join Session</button>
+        ` : `
+          ${canStart ? `
+            <button class="btn-xs primary" style="margin-top:0.8rem;border-radius:10px;background:var(--green)" onclick="manualStartScheduled(${idx})">Start Session Now</button>
+          ` : `
+            <div style="margin-top:1rem; font-size:.7rem; color:var(--text3); font-weight:600">COMING SOON</div>
+          `}
+        `}
+      </div>
+    `;
+  });
+  
+  if (!html) html = '<div style="color:var(--text3);font-size:.8rem">No sessions scheduled.</div>';
+  g.innerHTML = html;
+}
+
+function manualStartScheduled(idx) {
+  const s = window._activeSessions[idx];
+  s.isLive = true;
+  s.time = 'Live Now';
+  saveLMS();
+  S.roomId = s.roomId;
+  S.sessionTopic = s.topic;
+  joinRoom();
+}
+
+function joinSpecificSession(rid, topic) {
+  S.roomId = rid;
+  S.sessionTopic = topic;
+  joinRoom();
+}
+
+function refreshAssignmentsGrid() {
+  const g = document.getElementById('assignmentsView').querySelector('.grid-cards');
+  if(!g) return;
+  
+  let html = '';
+  // Teacher Create Button
+  if (S.role === 'host') {
+    html += `
+      <div class="dash-card" style="border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer" onclick="openAssignModal()">
+        <div style="font-size:1.5rem">➕</div>
+        <div style="font-weight:600; margin-top:.5rem">Create Assignment</div>
+      </div>
+    `;
+  }
+  
+  window._activeAssignments.forEach(a => {
+    html += `
+      <div class="dash-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <span class="t-label" style="color:${a.sev}">${a.status}</span>
+          <span style="font-size:0.7rem;color:var(--text3)">Due ${a.due}</span>
+        </div>
+        <div style="font-size:1rem;font-weight:600;margin:.4rem 0">${a.title}</div>
+        <p style="font-size:0.75rem;color:var(--text2)">${a.desc}</p>
+        <button class="btn-xs ${a.status==='Submitted'?'ghost':'primary'}" style="margin-top:0.8rem;border-radius:10px" ${a.status==='Submitted'?'disabled':''} onclick="submitManualAssign(${a.id})">
+          ${a.status==='Submitted'?'✓ Submitted':'Submit Assignment'}
+        </button>
+      </div>
+    `;
+  });
+  
+  g.innerHTML = html;
+}
+
+function submitManualAssign(id) {
+  const a = window._activeAssignments.find(x => x.id === id);
+  if (a) {
+    a.status = 'Submitted';
+    saveLMS();
+    refreshAssignmentsGrid();
+    toast('Assignment submitted!', '✅');
+  }
+}
+
 
 // ─────────────────────────────────────────────
 // PDF.JS WORKER
@@ -1225,9 +1482,11 @@ function setRole(r){
   document.getElementById('roleStudent').classList.toggle('active',r==='student');
 }
 function joinRoom(){
-  const r = 'RM-' + Math.random().toString(36).slice(2,6).toUpperCase();
-  S.roomId=r; S.lang='en'; S.pin='';
-  // S.name and S.sessionDurMin already set.
+  // Use manual roomId if set by teacher/manual student join, else random
+  const r = S.manualRoomId || S.roomId || 'RM-' + Math.random().toString(36).slice(2,6).toUpperCase();
+  S.roomId = r; 
+  S.lang = 'en'; 
+  S.pin = '';
   
   document.querySelectorAll('.view-section').forEach(el=>el.classList.remove('active'));
   document.getElementById('room').style.display = 'flex';
@@ -1238,6 +1497,10 @@ function joinRoom(){
   document.getElementById('localAvatarRing').textContent = S.name.charAt(0).toUpperCase();
   document.getElementById('localAvatarName').textContent = S.name;
   if(S.role!=='host') document.getElementById('localRoleBadge').textContent='STUDENT';
+  
+  // Clear manual join cache for next session
+  delete S.manualRoomId;
+  
   initRoom();
 }
 
