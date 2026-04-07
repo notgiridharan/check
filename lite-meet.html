@@ -1200,7 +1200,12 @@ function switchView(vid, btnEl) {
   if(navBtns.length) navBtns.forEach(b => b.classList.remove('active'));
   if(btnEl) btnEl.classList.add('active');
   
-  if(vid === 'scheduleView') refreshSessionsGrid();
+  if(vid === 'scheduleView') {
+    refreshSessionsGrid();
+    document.querySelector('.spa-sidebar').style.display = 'none';
+  } else {
+    document.querySelector('.spa-sidebar').style.display = 'flex';
+  }
   if(vid === 'assignmentsView') refreshAssignmentsGrid();
   if(vid === 'dashboardView') refreshDashboardUI();
 }
@@ -1490,6 +1495,7 @@ function joinRoom(){
   
   document.querySelectorAll('.view-section').forEach(el=>el.classList.remove('active'));
   document.getElementById('room').style.display = 'flex';
+  document.querySelector('.spa-sidebar').style.display = 'none';
   
   document.getElementById('roomPill').textContent = S.sessionTopic ? S.sessionTopic : r;
   document.getElementById('topName').textContent = S.name;
@@ -1568,10 +1574,10 @@ async function requestCameraFromGesture(){
   if(isFileProtocol){
     showCamOverlay(
       'Camera Unavailable',
-      `<div class="cam-warn">⚠️ You opened this file directly. Android Chrome blocks camera access for local files.</div>
-      <p style="margin-top:.5rem">To use your camera, open this file using one of these methods:</p>
-      <div class="cam-step"><div class="cam-step-num">1</div><div class="cam-step-txt">Use the <strong>Android fallback button</strong> below to capture a photo instead</div></div>
-      <div class="cam-step"><div class="cam-step-num">2</div><div class="cam-step-txt">Or serve this file over HTTPS / localhost (e.g. <code>npx serve .</code> on a PC then open the IP on phone)</div></div>`,
+      `<div class="cam-warn">⚠️ You opened this file directly from your computer. Web browsers block camera access for local files.</div>
+      <p style="margin-top:.5rem">To use your camera, you must serve the file over a local server:</p>
+      <div class="cam-step"><div class="cam-step-num">1</div><div class="cam-step-txt">Run <code>npm install && node server.js</code> in your terminal.</div></div>
+      <div class="cam-step"><div class="cam-step-num">2</div><div class="cam-step-txt">Open <strong>http://localhost:3000</strong> in your web browser.</div></div>`,
       'Understood',
       hideCamOverlay
     );
@@ -2452,6 +2458,8 @@ function exportWhiteboard(){
   const c=document.getElementById('wbCanvas');
   const url=c.toDataURL('image/png');
   const name=(S.sessionTopic||'Notes')+'_'+new Date().toISOString().slice(0,10)+'.png';
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   addDriveFile(name,'~200 KB','📄','synced');
   window._savedNotes.push({name: name, url: url, time: new Date().toLocaleTimeString()});
   refreshNotesGrid();
@@ -2462,7 +2470,7 @@ function refreshNotesGrid() {
   if(!g) return;
   if(!window._savedNotes.length){ g.innerHTML='<div style="color:var(--text3);font-size:.8rem">No notes synced yet.</div>'; return; }
   g.innerHTML = window._savedNotes.map(n => `
-    <div class="media-card">
+    <div class="media-card" style="cursor:pointer" onclick="const a=document.createElement('a');a.href='${n.url}';a.download='${n.name}';document.body.appendChild(a);a.click();document.body.removeChild(a);">
       <div class="mc-thumb" style="background:#fff">
         <img src="${n.url}" style="width:100%;height:100%;object-fit:contain">
       </div>
@@ -2514,6 +2522,7 @@ function initWhiteboard(){
 function sizeWb(){
   const c=document.getElementById('wbCanvas');
   const p=c.parentElement;
+  if(!p || p.clientWidth === 0) return;
   const img=wbCtx?wbCtx.getImageData(0,0,c.width,c.height):null;
   c.width=p.clientWidth-12;
   c.height=Math.max(120,p.clientHeight-90);
@@ -4215,8 +4224,7 @@ function endCall() {
   for (const id of _analysers.keys()) stopAudioDetection(id);
   toast('Session ended', '👋');
   setTimeout(() => {
-    document.getElementById('room').classList.remove('active');
-    document.getElementById('lobby').style.display = 'flex';
+    switchView('dashboardView', document.querySelector('.spa-nbtn'));
     const v = document.getElementById('localVideo');
     v.srcObject = null; v.style.display = 'none';
     document.getElementById('localAvatarWrap').style.display = 'flex';
