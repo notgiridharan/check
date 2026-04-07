@@ -31,12 +31,14 @@ window.LITEMEET_SERVER_URL = (location.protocol === 'file:')
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0f0f11;--surface:#17171c;--surface2:#1e1e25;--surface3:#25252f;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
-  --text:#f0f0f4;--text2:#8b8b9a;--text3:#45455a;
-  --blue:#3b6ff0;--blue2:#2557d6;--green:#22c55e;--amber:#f59e0b;--red:#ef4444;
-  --r:10px;--r2:7px;--r3:5px;
-  --sans:'Albert Sans',sans-serif;--serif:'Instrument Serif',serif;
+  --bg:#000000;--surface:rgba(28,28,30,0.65);--surface2:rgba(44,44,46,0.65);--surface3:rgba(58,58,60,0.65);
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.12);
+  --text:#f0f0f4;--text2:#98989d;--text3:#636366;
+  --blue:#007AFF;--blue2:#0A84FF;--green:#34C759;--amber:#FF9500;--red:#FF3B30;
+  --r:20px;--r2:14px;--r3:10px;
+  --sans:-apple-system, BlinkMacSystemFont, "SF Pro", "Helvetica Neue", sans-serif;--serif:-apple-system, BlinkMacSystemFont, "SF Pro", "Helvetica Neue", serif;
+  --blur:blur(25px) saturate(180%);
+  --shadow:0 8px 32px rgba(0,0,0,0.4),0 4px 14px rgba(0,0,0,0.2);
 }
 html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;overflow:hidden;-webkit-tap-highlight-color:transparent}
 
@@ -55,10 +57,10 @@ html,body{height:100%;font-family:var(--sans);background:var(--bg);color:var(--t
 select.form-input{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2355556a'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .8rem center;padding-right:2rem}
 select.form-input option{background:var(--surface2)}
 .lobby-role{display:flex;gap:.5rem;margin-bottom:1rem}
-.role-btn{flex:1;padding:.6rem;border:1px solid var(--border2);border-radius:var(--r2);background:transparent;color:var(--text2);font-family:var(--sans);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .15s;text-align:center}
+.role-btn{flex:1;padding:.6rem;border:1px solid var(--border2);border-radius:20px;background:transparent;color:var(--text2);font-family:var(--sans);font-size:.82rem;font-weight:500;cursor:pointer;transition:all .15s;text-align:center}
 .role-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
-.btn-join{width:100%;background:var(--blue);color:#fff;border:none;border-radius:var(--r2);padding:.8rem;font-family:var(--sans);font-size:.92rem;font-weight:600;cursor:pointer;transition:.15s;-webkit-appearance:none;appearance:none}
-.btn-join:active{background:var(--blue2)}
+.btn-join{width:100%;background:var(--blue);color:#fff;border:none;border-radius:20px;padding:.8rem;font-family:var(--sans);font-size:.92rem;font-weight:600;cursor:pointer;transition:.15s;-webkit-appearance:none;appearance:none;box-shadow:0 2px 8px rgba(0,122,255,0.4)}
+.btn-join:active{background:var(--blue2);transform:scale(0.98)}
 .lobby-chips{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:1.25rem}
 .chip{font-size:.65rem;padding:.2rem .5rem;border-radius:20px;border:1px solid var(--border2);color:var(--text3);font-weight:500}
 
@@ -67,7 +69,7 @@ select.form-input option{background:var(--surface2)}
 #room.active{display:flex}
 
 /* ── TOPBAR ── */
-.topbar{height:48px;display:flex;align-items:center;gap:.6rem;padding:0 .85rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface)}
+.topbar{height:52px;display:flex;align-items:center;gap:.6rem;padding:0 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);z-index:400}
 .topbar-brand{font-family:var(--serif);font-size:1.05rem;color:var(--text);flex-shrink:0}
 .topbar-brand em{font-style:italic;color:var(--blue)}
 .room-pill{font-size:.68rem;color:var(--text3);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:.15rem .55rem;cursor:pointer;font-weight:500;flex-shrink:0;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -82,7 +84,7 @@ select.form-input option{background:var(--surface2)}
 /* ── NET INFO MODAL ── */
 #netModal{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:600;display:none;align-items:center;justify-content:center;padding:1.25rem}
 #netModal.show{display:flex}
-.net-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:1.25rem;max-width:310px;width:100%;display:flex;flex-direction:column;gap:.75rem;animation:tIn .2s ease}
+.net-card{background:var(--surface);border:none;border-radius:var(--r);padding:1.25rem;max-width:310px;width:100%;display:flex;flex-direction:column;gap:.75rem;animation:tIn .2s ease;box-shadow:var(--shadow)}
 .net-card-title{font-family:var(--serif);font-size:1.1rem;font-style:italic;color:var(--text);display:flex;align-items:center;gap:.5rem}
 .net-card-sub{font-size:.73rem;color:var(--text3);line-height:1.6;border-bottom:1px solid var(--border);padding-bottom:.65rem}
 .net-stats{display:flex;flex-direction:column;gap:.4rem}
@@ -137,8 +139,9 @@ select.form-input option{background:var(--surface2)}
 .main{display:flex;flex:1;overflow:hidden;min-height:0}
 
 /* ── VIDEO AREA ── */
-.video-area{flex:1;display:flex;flex-direction:column;padding:.6rem;gap:.6rem;overflow:hidden;min-width:0;min-height:0}
-.video-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));grid-auto-rows:1fr;gap:.6rem;overflow:hidden;min-height:0;place-content:center}
+.video-area{flex:1;display:flex;flex-direction:column;padding:.8rem;gap:.8rem;overflow:hidden;min-width:0;min-height:0}
+.video-grid{flex:1;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));grid-auto-rows:1fr;gap:.8rem;overflow:hidden;min-height:0;place-content:center}
+.vtile{position:relative;background:var(--surface);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
 .vtile.speaking{border-color:var(--green);box-shadow:0 0 0 2px rgba(34,197,94,.22)}
 .avatar-ring{transition:box-shadow .15s}
 .avatar-ring.audio-active{box-shadow:0 0 0 3px rgba(34,197,94,.6)}
@@ -161,14 +164,14 @@ select.form-input option{background:var(--surface2)}
 .hand-item-btn{font-size:.65rem;padding:.18rem .45rem;border-radius:var(--r3);background:var(--blue);color:#fff;border:none;cursor:pointer;font-family:var(--sans);font-weight:600}
 #knockOverlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:800;display:none;align-items:flex-end;justify-content:center;padding-bottom:5rem}
 #knockOverlay.show{display:flex}
-.knock-card{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:1rem 1.25rem;max-width:320px;width:90%;display:flex;flex-direction:column;gap:.65rem;animation:tIn .2s ease}
+.knock-card{background:var(--surface);border:none;border-radius:var(--r);padding:1.2rem 1.5rem;max-width:320px;width:90%;display:flex;flex-direction:column;gap:.65rem;animation:tIn .2s ease;box-shadow:var(--shadow)}
 .knock-name{font-size:.9rem;font-weight:600;color:var(--text)}
 .knock-sub{font-size:.75rem;color:var(--text3)}
 .knock-btns{display:flex;gap:.5rem}
-.knock-btn{flex:1;padding:.5rem;border-radius:var(--r2);font-family:var(--sans);font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s}
+.knock-btn{flex:1;padding:.5rem;border-radius:20px;font-family:var(--sans);font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s}
 .knock-btn.admit{background:var(--green);color:#fff}
 .knock-btn.deny{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
-.btn-mute-all{width:100%;padding:.4rem;border-radius:var(--r2);font-family:var(--sans);font-size:.73rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:.15s}
+.btn-mute-all{width:100%;padding:.4rem;border-radius:20px;font-family:var(--sans);font-size:.73rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:.15s}
 .btn-mute-all:hover{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.3)}
 #installBanner{display:none;position:fixed;bottom:4.5rem;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:.65rem 1rem;max-width:300px;width:90%;z-index:500;box-shadow:0 8px 24px rgba(0,0,0,.5)}
 #installBanner.show{display:flex;align-items:center;gap:.75rem;animation:tIn .3s ease}
@@ -191,7 +194,7 @@ select.form-input option{background:var(--surface2)}
 .caption-tr{font-size:.75rem;color:var(--green);flex-shrink:0}
 
 /* ── SIDEBAR ── */
-.sidebar{width:290px;display:flex;flex-direction:column;border-left:1px solid var(--border);flex-shrink:0;background:var(--surface);overflow:hidden}
+.sidebar{width:320px;display:flex;flex-direction:column;border-left:1px solid var(--border);flex-shrink:0;background:var(--surface);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);overflow:hidden;box-shadow:-4px 0 24px rgba(0,0,0,0.3)}
 .snav{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;scrollbar-width:none}
 .snav::-webkit-scrollbar{display:none}
 .snav-btn{flex-shrink:0;padding:.5rem .55rem;font-size:.62rem;font-weight:600;font-family:var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);background:transparent;border:none;cursor:pointer;transition:.15s;border-bottom:2px solid transparent;white-space:nowrap}
@@ -247,7 +250,7 @@ canvas#docAnnotCanvas{position:absolute;top:0;left:0;display:block;touch-action:
 
 /* ── DRIVE ── */
 .drive-wrap{display:flex;flex-direction:column;flex:1;overflow-y:auto;padding:.65rem;gap:.65rem;min-height:0}
-.drive-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.75rem;display:flex;flex-direction:column;gap:.55rem}
+.drive-card{background:var(--surface2);border:none;border-radius:var(--r2);padding:.85rem;display:flex;flex-direction:column;gap:.55rem;box-shadow:0 4px 14px rgba(0,0,0,0.2)}
 .drive-card-title{font-size:.72rem;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:.4rem}
 .drive-card-title span{font-size:.9rem}
 .rec-status{font-size:.75rem;color:var(--text3);line-height:1.5}
@@ -266,10 +269,10 @@ canvas#docAnnotCanvas{position:absolute;top:0;left:0;display:block;touch-action:
 .drive-sync-status{font-size:.73rem;color:var(--text3);line-height:1.7;padding:.4rem 0}
 .sync-item{display:flex;align-items:center;gap:.4rem}
 .sync-dot{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
-.btn-rec{width:100%;padding:.55rem;border-radius:var(--r2);font-family:var(--sans);font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;background:var(--blue);color:#fff}
-.btn-rec:active{background:var(--blue2)}
+.btn-rec{width:100%;padding:.55rem;border-radius:20px;font-family:var(--sans);font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:.15s;background:var(--blue);color:#fff}
+.btn-rec:active{background:var(--blue2);transform:scale(0.98)}
 .btn-rec.recording{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:var(--red)}
-.btn-export{width:100%;padding:.48rem;border-radius:var(--r2);font-family:var(--sans);font-size:.77rem;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:.15s}
+.btn-export{width:100%;padding:.48rem;border-radius:20px;font-family:var(--sans);font-size:.77rem;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2);transition:.15s}
 .btn-export:hover{background:var(--surface3);color:var(--text)}
 
 /* ── CHAT ── */
@@ -290,17 +293,17 @@ canvas#docAnnotCanvas{position:absolute;top:0;left:0;display:block;touch-action:
 /* ── POLLS ── */
 .polls-wrap{flex:1;overflow-y:auto;padding:.65rem;display:flex;flex-direction:column;gap:.6rem;min-height:0}
 .section-lbl{font-size:.66rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.2rem}
-.poll-create{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.65rem;display:flex;flex-direction:column;gap:.38rem}
+.poll-create{background:var(--surface2);border:none;border-radius:var(--r2);padding:.85rem;display:flex;flex-direction:column;gap:.38rem;box-shadow:0 4px 14px rgba(0,0,0,0.2)}
 .poll-inp{width:100%;background:var(--surface3);border:1px solid var(--border);border-radius:var(--r3);padding:.4rem .6rem;color:var(--text);font-family:var(--sans);font-size:.8rem;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
 .poll-inp:focus{border-color:var(--blue)}
 .poll-inp::placeholder{color:var(--text3)}
 .poll-btns{display:flex;gap:.35rem}
-.btn-xs{padding:.32rem .6rem;border-radius:var(--r3);font-family:var(--sans);font-size:.72rem;font-weight:600;cursor:pointer;border:none;transition:.12s}
+.btn-xs{padding:.32rem .75rem;border-radius:14px;font-family:var(--sans);font-size:.72rem;font-weight:600;cursor:pointer;border:none;transition:.12s}
 .btn-xs.primary{background:var(--blue);color:#fff}
 .btn-xs.primary:active{background:var(--blue2)}
-.btn-xs.ghost{background:var(--surface3);color:var(--text2);border:1px solid var(--border)}
+.btn-xs.ghost{background:var(--surface3);color:var(--text2);border:1px solid var(--border);border-radius:14px}
 .btn-xs.ghost:hover{color:var(--text)}
-.poll-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.6rem}
+.poll-card{background:var(--surface2);border:none;border-radius:var(--r2);padding:.85rem;box-shadow:0 4px 14px rgba(0,0,0,0.2)}
 .poll-q{font-size:.8rem;font-weight:600;color:var(--text);margin-bottom:.45rem}
 .poll-opt{display:flex;align-items:center;gap:.38rem;margin-bottom:.32rem;cursor:pointer}
 .poll-opt input[type=radio]{accent-color:var(--blue);cursor:pointer;flex-shrink:0}
@@ -319,7 +322,7 @@ canvas#docAnnotCanvas{position:absolute;top:0;left:0;display:block;touch-action:
 .people-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;color:var(--text3);font-size:.78rem;text-align:center;padding:1rem}
 
 /* ── CTRLBAR ── */
-.ctrlbar{height:62px;display:flex;align-items:center;justify-content:center;gap:.45rem;border-top:1px solid var(--border);padding:0 .75rem;flex-shrink:0;background:var(--surface);overflow-x:auto;scrollbar-width:none}
+.ctrlbar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);height:68px;display:flex;align-items:center;justify-content:center;gap:.6rem;border:1px solid var(--border);padding:0 1.25rem;background:rgba(28,28,30,0.75);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);border-radius:34px;box-shadow:var(--shadow);z-index:900}
 .ctrlbar::-webkit-scrollbar{display:none}
 .ctrl-grp{display:flex;align-items:center;gap:.45rem;flex-shrink:0}
 .ctrl-div{width:1px;height:28px;background:var(--border);margin:0 .1rem;flex-shrink:0}
@@ -485,67 +488,68 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
+
+/* ── SPA LAYOUT (Stitch) ── */
+#appWrapper{display:none;width:100%;height:100%;background:var(--bg)}
+#appWrapper.active{display:flex}
+.spa-sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur)}
+.spa-brand{padding:1.5rem;display:flex;align-items:center;gap:.5rem;font-family:var(--serif);font-size:1.6rem;color:var(--text);border-bottom:1px solid var(--border)}
+.spa-brand em{color:var(--blue);font-style:italic}
+.spa-nav{padding:1rem .8rem;display:flex;flex-direction:column;gap:.3rem;flex:1;overflow-y:auto}
+.spa-nbtn{padding:.7rem 1rem;border-radius:var(--r2);color:var(--text2);font-family:var(--sans);font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:.7rem;cursor:pointer;transition:.15s;border:none;background:transparent;text-align:left}
+.spa-nbtn:hover{color:var(--text);background:var(--surface2)}
+.spa-nbtn.active{background:rgba(0,122,255,0.15);color:var(--blue)}
+.spa-bot{padding:1.2rem .8rem;border-top:1px solid var(--border)}
+.new-session-btn{width:100%;background:var(--blue);color:#fff;border:none;border-radius:20px;padding:.8rem;font-weight:600;font-size:.9rem;cursor:pointer;display:none;box-shadow:0 4px 14px rgba(0,122,255,0.4)}
+.spa-main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+.spa-topbar{height:65px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 1.5rem;gap:1rem;backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);z-index:20}
+.spa-search{flex:1;max-width:400px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:.55rem 1rem;color:var(--text);font-size:.8rem;outline:none}
+.spa-user{display:flex;align-items:center;gap:.6rem;cursor:pointer}
+.spa-avatar{width:34px;height:34px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.8rem}
+.spa-content{flex:1;overflow-y:auto;position:relative;background:var(--bg)}
+.view-section{display:none;padding:1.5rem;flex-direction:column;gap:1.5rem;min-height:100%}
+.view-section.active{display:flex;animation:tIn 0.3s ease}
+.view-header{display:flex;flex-direction:column;gap:.3rem}
+.view-title{font-size:1.6rem;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.view-sub{font-size:.85rem;color:var(--text3)}
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1.2rem}
+.dash-card{background:var(--surface2);border-radius:var(--r2);padding:1.2rem;box-shadow:0 4px 14px rgba(0,0,0,0.2);display:flex;flex-direction:column;gap:.5rem}
+.t-label{font-size:.7rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+
+/* Notes & Lectures Grid */
+.media-card{background:var(--surface2);border-radius:var(--r2);overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,0.2);cursor:pointer;transition:transform .15s}
+.media-card:hover{transform:translateY(-2px)}
+.mc-thumb{height:140px;background:#000;position:relative;display:flex;align-items:center;justify-content:center}
+.mc-thumb img{width:100%;height:100%;object-fit:cover}
+.mc-thumb video{width:100%;height:100%;object-fit:cover}
+.mc-info{padding:.8rem}
+.mc-title{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:.2rem}
+.mc-meta{font-size:.7rem;color:var(--text3)}
+
+/* Start Class Modal */
+#startModal{position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9000;display:none;align-items:center;justify-content:center}
+#startModal.show{display:flex}
+.start-dialog{background:var(--surface);border-radius:var(--r);padding:2rem;width:90%;max-width:400px;box-shadow:var(--shadow)}
 </style>
 </head>
 <body>
 
-<div id="lobby">
+<div id="loginPage" style="height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg);position:fixed;inset:0;z-index:9999">
   <div class="lobby-wrap">
     <div class="lobby-brand">
       <div class="lobby-wordmark">Lite<em>Meet</em></div>
-      <div class="lobby-sub">Ultra-low bandwidth virtual classroom · 2G/3G optimised</div>
+      <div class="lobby-sub" style="color:var(--blue)">Executive Portal</div>
     </div>
     <div class="form-group">
-      <label class="form-label">Your name</label>
-      <input id="lbName" class="form-input" placeholder="Enter your name" autocomplete="off" autocorrect="off" autocapitalize="words">
+      <label class="form-label">Email Address</label>
+      <input id="loginEmail" type="email" class="form-input" placeholder="e.g. teacher@school.edu" value="teacher@school.edu">
+      <div style="font-size:0.65rem;color:var(--text3);margin-top:4px">Use any email containing "teacher" to get Host privileges.</div>
     </div>
     <div class="form-group">
-      <label class="form-label">Room ID</label>
-      <input id="lbRoom" class="form-input" placeholder="Leave blank to create new room" autocomplete="off" autocorrect="off" autocapitalize="characters">
+      <label class="form-label">Password</label>
+      <input id="loginPass" type="password" class="form-input" value="password123" placeholder="••••••••">
     </div>
-    <div class="form-group" id="pinGroup">
-      <label class="form-label">Room PIN <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(optional — set one as host to secure your room)</span></label>
-      <input id="lbPin" class="form-input" placeholder="Leave blank for open room" type="text" autocomplete="off" maxlength="20">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Subtitle language</label>
-      <select id="lbLang" class="form-input">
-        <option value="en">English</option>
-        <option value="hi">Hindi (हिंदी)</option>
-        <option value="ta">Tamil (தமிழ்)</option>
-        <option value="te">Telugu (తెలుగు)</option>
-        <option value="bn">Bengali (বাংলা)</option>
-        <option value="mr">Marathi (मराठी)</option>
-        <option value="gu">Gujarati (ગુજરાતી)</option>
-        <option value="kn">Kannada (ಕನ್ನಡ)</option>
-        <option value="ml">Malayalam (മലയാളം)</option>
-        <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
-        <option value="ur">Urdu (اردو)</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Session Duration <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(timer counts down — meeting ends automatically)</span></label>
-      <select id="lbDuration" class="form-input">
-        <option value="0">No limit (count-up only)</option>
-        <option value="30">30 minutes</option>
-        <option value="45" selected>45 minutes</option>
-        <option value="60">60 minutes</option>
-        <option value="90">90 minutes</option>
-        <option value="120">2 hours</option>
-      </select>
-    </div>
-    <div class="lobby-role">
-      <button class="role-btn active" id="roleHost" onclick="setRole('host')">Host</button>
-      <button class="role-btn" id="roleStudent" onclick="setRole('student')">Student</button>
-    </div>
-    <button class="btn-join" onclick="joinRoom()">Join Session</button>
-    <div class="lobby-chips">
-      <span class="chip">Opus VBR 6kbps</span>
-      <span class="chip">Edge-AI 720p</span>
-      <span class="chip">22+ languages</span>
-      <span class="chip">Vector sync</span>
-      <span class="chip">&lt;1KB polls</span>
-    </div>
+    <button class="btn-join" onclick="processLogin()" style="margin-top:1.5rem">Login to LiteMeet ➔</button>
   </div>
 </div>
 
@@ -565,7 +569,176 @@ input[type=range].ai-sl::-webkit-slider-thumb{
   </div>
 </div>
 
-<div id="room">
+<div id="appWrapper">
+  <div class="spa-sidebar">
+    <div class="spa-brand">
+      Lite<em>Meet</em>
+    </div>
+    <div class="spa-nav">
+      <button class="spa-nbtn active" onclick="switchView('dashboardView', this)">🏠 Dashboard</button>
+      <button class="spa-nbtn" onclick="switchView('scheduleView', this)">📅 Schedule</button>
+      <button class="spa-nbtn" onclick="switchView('assignmentsView', this)">📝 Assignments</button>
+      <button class="spa-nbtn" id="notesNavBtn" onclick="switchView('notesView', this)">🎨 Notes</button>
+      <button class="spa-nbtn" id="lecturesNavBtn" onclick="switchView('lecturesView', this)">🎞️ Lectures</button>
+    </div>
+    <div class="spa-bot">
+      <button class="new-session-btn" id="hostNewSessionBtn" onclick="openStartModal()">+ New Session</button>
+    </div>
+  </div>
+  
+  <div class="spa-main">
+    <div class="spa-topbar">
+      <input type="text" class="spa-search" placeholder="Search sessions, notes...">
+      <div style="flex:1"></div>
+      <div class="net-badge good" id="netBadge" onclick="openNetModal()" title="Click for network details"><div class="net-dot"></div><span id="netLabel">4G · —ms</span></div>
+      <div class="spa-user">
+        <div class="spa-avatar" id="globalAvatar">T</div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <span style="font-size:.7rem;color:var(--text2);font-weight:600" id="globalRole">Teacher</span>
+          <span style="font-size:.65rem;color:var(--text3)" id="globalEmail">teacher@</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="spa-content">
+      
+      <!-- DASHBOARD VIEW -->
+      <div id="dashboardView" class="view-section active">
+        <div class="view-header">
+          <div class="view-title">Welcome back, <span id="dashName">User</span></div>
+          <div class="view-sub">Here is your daily overview.</div>
+        </div>
+        <div class="grid-cards">
+          <div class="dash-card" style="grid-column: span 2; background: linear-gradient(135deg, rgba(0,122,255,0.2), rgba(0,0,0,0.5)); border:1px solid rgba(0,122,255,0.4)">
+            <span class="t-label" style="color:var(--blue)">System Status</span>
+            <div style="font-size:1.3rem;font-weight:600;margin-top:.4rem">All systems optimal. Your next class starts in 45 minutes.</div>
+          </div>
+          <div class="dash-card">
+            <span class="t-label">Average Attendance</span>
+            <div style="font-size:1.8rem;font-weight:700;color:var(--text);margin-top:.4rem">94%</div>
+            <div style="font-size:0.7rem;color:var(--green)">+2% from last week</div>
+          </div>
+          <div class="dash-card">
+            <span class="t-label">Assignments Pending</span>
+            <div style="font-size:1.8rem;font-weight:700;color:var(--text);margin-top:.4rem">4</div>
+            <div style="font-size:0.7rem;color:var(--red)">2 due tomorrow</div>
+          </div>
+          <div class="dash-card" style="grid-column: span 3">
+            <span class="t-label">Recent Activity</span>
+            <div style="margin-top:0.8rem;display:flex;flex-direction:column;gap:0.8rem">
+              <div style="display:flex;align-items:center;gap:1rem;padding-bottom:0.8rem;border-bottom:1px solid var(--border)">
+                <div style="width:8px;height:8px;border-radius:50%;background:var(--blue)"></div>
+                <div style="flex:1;font-size:0.85rem">You uploaded "Physics_Lecture_Notes.pdf"</div>
+                <div style="font-size:0.75rem;color:var(--text3)">2 hours ago</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:1rem;padding-bottom:0.8rem;border-bottom:1px solid var(--border)">
+                <div style="width:8px;height:8px;border-radius:50%;background:var(--green)"></div>
+                <div style="flex:1;font-size:0.85rem">Completed "Mathematics Mid-term Quiz"</div>
+                <div style="font-size:0.75rem;color:var(--text3)">5 hours ago</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOTES VIEW -->
+      <div id="notesView" class="view-section">
+        <div class="view-header">
+          <div class="view-title">Jamboard Notes</div>
+          <div class="view-sub">Exported collaborative whiteboards.</div>
+        </div>
+        <div class="grid-cards" id="notesGrid">
+          <!-- Dynamically populated -->
+          <div style="color:var(--text3);font-size:.8rem">No notes synced yet. Export a whiteboard during a session.</div>
+        </div>
+      </div>
+
+      <!-- LECTURES VIEW -->
+      <div id="lecturesView" class="view-section">
+        <div class="view-header">
+          <div class="view-title">Recorded Lectures</div>
+          <div class="view-sub">Your auto-synced class recordings.</div>
+        </div>
+        <div class="grid-cards" id="lecturesGrid">
+          <!-- Dynamically populated -->
+          <div style="color:var(--text3);font-size:.8rem">No lectures synced yet. Record a meeting session.</div>
+        </div>
+      </div>
+      
+      <!-- ASSIGNMENTS VIEW -->
+      <div id="assignmentsView" class="view-section">
+        <div class="view-header">
+          <div class="view-title">Assignments</div>
+          <div class="view-sub">Active curriculum tasks and submissions.</div>
+        </div>
+        <div class="grid-cards">
+          <div class="dash-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span class="t-label" style="color:var(--red)">Critical</span>
+              <span style="font-size:0.7rem;color:var(--text3)">Due Today</span>
+            </div>
+            <div style="font-size:1rem;font-weight:600;margin:.4rem 0">Advanced Calculus Problem Set</div>
+            <p style="font-size:0.75rem;color:var(--text2)">Solve questions 1-15 from Chapter 4 and upload PDF.</p>
+            <button class="btn-xs primary" style="margin-top:0.8rem;border-radius:10px">Submit Assignment</button>
+          </div>
+          <div class="dash-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span class="t-label" style="color:var(--blue)">Pending</span>
+              <span style="font-size:0.7rem;color:var(--text3)">Due in 3 days</span>
+            </div>
+            <div style="font-size:1rem;font-weight:600;margin:.4rem 0">Modern History Research Paper</div>
+            <p style="font-size:0.75rem;color:var(--text2)">Topic: The impact of industrial revolution on urban life.</p>
+            <button class="btn-xs ghost" style="margin-top:0.8rem;border-radius:10px">View Details</button>
+          </div>
+          <div class="dash-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span class="t-label" style="color:var(--green)">Completed</span>
+              <span style="font-size:0.7rem;color:var(--text3)">Grade: A+</span>
+            </div>
+            <div style="font-size:1rem;font-weight:600;margin:.4rem 0">Introduction to Web Development</div>
+            <p style="font-size:0.75rem;color:var(--text2)">Build a simple portfolio website using HTML/CSS.</p>
+            <button class="btn-xs ghost" style="margin-top:0.8rem;border-radius:10px" disabled>Submitted</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCHEDULE VIEW -->
+      <div id="scheduleView" class="view-section">
+        <div class="view-header">
+          <div class="view-title">Schedule</div>
+          <div class="view-sub">Your weekly calendar and upcoming sessions.</div>
+        </div>
+        <div class="grid-cards">
+          <div class="dash-card" style="border-left: 4px solid var(--blue)">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span class="t-label" style="color:var(--blue)">Live Now</span>
+              <span style="font-size:0.7rem;color:var(--text3)">10:00 AM - 11:00 AM</span>
+            </div>
+            <div style="font-size:1rem;font-weight:600;margin:.4rem 0">Computer Science: Data Structures</div>
+            <p style="font-size:0.75rem;color:var(--text2)">Instructor: Dr. Alan Turing</p>
+            <button class="btn-xs primary" style="margin-top:0.8rem;border-radius:10px" onclick="openStartModal()">Start / Join Session</button>
+          </div>
+          <div class="dash-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span class="t-label">Upcoming</span>
+              <span style="font-size:0.7rem;color:var(--text3)">Tomorrow, 2:00 PM</span>
+            </div>
+            <div style="font-size:1rem;font-weight:600;margin:.4rem 0">Macroeconomics 101</div>
+            <p style="font-size:0.75rem;color:var(--text2)">Instructor: Prof. John Maynard</p>
+          </div>
+          <div class="dash-card">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <span class="t-label">Upcoming</span>
+              <span style="font-size:0.7rem;color:var(--text3)">Thursday, 9:00 AM</span>
+            </div>
+            <div style="font-size:1rem;font-weight:600;margin:.4rem 0">Organic Chemistry II</div>
+            <p style="font-size:0.75rem;color:var(--text2)">Instructor: Dr. Marie Curie</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- THE MEETING ROOM (Hidden by default in SPA until started/joined) -->
+      <div id="room" style="position:absolute;inset:0;z-index:50;display:none;background:var(--bg)">
 
   <div class="topbar">
     <div class="topbar-brand">Lite<em>Meet</em></div>
@@ -870,6 +1043,22 @@ input[type=range].ai-sl::-webkit-slider-thumb{
   </div>
 </div>
 
+<!-- START CLASS MODAL -->
+<div id="startModal">
+  <div class="start-dialog">
+    <h3 style="font-family:var(--sans);font-size:1.3rem;font-weight:700;color:var(--text);margin-bottom:.5rem">Start New Session</h3>
+    <p style="font-size:.8rem;color:var(--text2);margin-bottom:1.5rem">Enter the curriculum topic for today's class. All generated notes and lecture recordings will be saved under this session name.</p>
+    <div class="form-group" style="text-align:left">
+      <label class="form-label" style="margin-bottom:.4rem">Class Topic / Name</label>
+      <input type="text" id="sessionTopicInp" class="form-input" style="border-radius:14px;background:var(--surface2)" placeholder="e.g. Intro to Machine Learning">
+    </div>
+    <div style="display:flex;gap:.5rem;margin-top:1.5rem">
+      <button class="btn-xs ghost" style="flex:1;padding:.6rem;font-size:.8rem;border-radius:20px" onclick="closeStartModal()">Cancel</button>
+      <button class="btn-join" style="flex:1;padding:.6rem;font-size:.8rem;border-radius:20px;margin-top:0" onclick="confirmStartClass()">Start Class</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── NET INFO MODAL ── -->
 <div id="netModal">
   <div class="net-card">
@@ -939,8 +1128,63 @@ input[type=range].ai-sl::-webkit-slider-thumb{
   </div>
 </div>
 <div class="toast-stack" id="toastStack"></div>
+    </div> <!-- end spa-content -->
+  </div> <!-- end spa-main -->
+</div> <!-- end appWrapper -->
 
 <script>
+window._savedLectures = [];
+window._savedNotes = [];
+
+function switchView(vid, btnEl) {
+  document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+  document.getElementById('room').style.display = 'none'; // hide room explicit
+  document.getElementById(vid).classList.add('active');
+  const navBtns = document.querySelectorAll('.spa-nbtn');
+  if(navBtns.length) navBtns.forEach(b => b.classList.remove('active'));
+  if(btnEl) btnEl.classList.add('active');
+}
+
+function processLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const n = email.split('@')[0];
+  
+  if(email.toLowerCase().includes('teacher')) {
+    S.role = 'host';
+    S.name = 'Teacher ' + n;
+    document.getElementById('hostNewSessionBtn').style.display = 'block';
+    document.getElementById('globalRole').textContent = 'Teacher';
+  } else {
+    S.role = 'student';
+    S.name = 'Student ' + n;
+    document.getElementById('hostNewSessionBtn').style.display = 'none';
+    document.getElementById('globalRole').textContent = 'Student';
+  }
+  
+  document.getElementById('globalEmail').textContent = email;
+  document.getElementById('globalAvatar').textContent = S.name.charAt(0).toUpperCase();
+  document.getElementById('dashName').textContent = S.name;
+
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appWrapper').classList.add('active');
+  switchView('dashboardView', document.querySelector('.spa-nbtn'));
+}
+
+function openStartModal() {
+  document.getElementById('startModal').classList.add('show');
+}
+function closeStartModal() {
+  document.getElementById('startModal').classList.remove('show');
+}
+
+function confirmStartClass() {
+  const topic = document.getElementById('sessionTopicInp').value.trim() || 'General Session';
+  S.sessionTopic = topic;
+  closeStartModal();
+  S.sessionDurMin = 60; // Host cap requested
+  joinRoom();
+}
+
 // ─────────────────────────────────────────────
 // PDF.JS WORKER
 // ─────────────────────────────────────────────
@@ -981,19 +1225,18 @@ function setRole(r){
   document.getElementById('roleStudent').classList.toggle('active',r==='student');
 }
 function joinRoom(){
-  const n=document.getElementById('lbName').value.trim()||'Guest';
-  const r=document.getElementById('lbRoom').value.trim().toUpperCase()||'ROOM-'+Math.random().toString(36).slice(2,6).toUpperCase();
-  const pin=document.getElementById('lbPin').value.trim();
-  const durMin=parseInt(document.getElementById('lbDuration').value,10)||0;
-  S.name=n;S.roomId=r;S.lang=document.getElementById('lbLang').value;S.pin=pin;
-  S.sessionDurMin=durMin;
-  document.getElementById('lobby').style.display='none';
-  document.getElementById('room').classList.add('active');
-  document.getElementById('roomPill').textContent=r;
-  document.getElementById('topName').textContent=n;
-  document.getElementById('localTileName').textContent=n;
-  document.getElementById('localAvatarRing').textContent=n.slice(0,2).toUpperCase();
-  document.getElementById('localAvatarName').textContent=n;
+  const r = 'RM-' + Math.random().toString(36).slice(2,6).toUpperCase();
+  S.roomId=r; S.lang='en'; S.pin='';
+  // S.name and S.sessionDurMin already set.
+  
+  document.querySelectorAll('.view-section').forEach(el=>el.classList.remove('active'));
+  document.getElementById('room').style.display = 'flex';
+  
+  document.getElementById('roomPill').textContent = S.sessionTopic ? S.sessionTopic : r;
+  document.getElementById('topName').textContent = S.name;
+  document.getElementById('localTileName').textContent = S.name;
+  document.getElementById('localAvatarRing').textContent = S.name.charAt(0).toUpperCase();
+  document.getElementById('localAvatarName').textContent = S.name;
   if(S.role!=='host') document.getElementById('localRoleBadge').textContent='STUDENT';
   initRoom();
 }
@@ -1898,18 +2141,34 @@ function finishRecording(){
   if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
   status.textContent='Saved ✓';
   prog.style.display='none';
-  const fname='LiteMeet_'+S.roomId+'_'+new Date().toISOString().slice(0,10)+'.webm';
+  const fname=(S.sessionTopic||'Lecture')+'_'+new Date().toISOString().slice(0,10)+'.webm';
   if(S.recChunks.length){
     const blob=new Blob(S.recChunks,{type:'video/webm'});
     const url=URL.createObjectURL(blob);
     addDriveFile(fname,formatBytes(blob.size),'🎬','synced');
-    const a=document.createElement('a');a.href=url;a.download=fname;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    toast('Recording saved: '+fname,'💾');
+    window._savedLectures.push({name: fname, url: url, time: new Date().toLocaleTimeString()});
+    refreshLecturesGrid();
+    toast('Lecture auto-synced to LMS','💾');
   } else {
     addDriveFile(fname,'~0 KB','🎬','synced');
     toast('Recording saved (no stream captured)','💾');
   }
+}
+function refreshLecturesGrid() {
+  const g = document.getElementById('lecturesGrid');
+  if(!g) return;
+  if(!window._savedLectures.length){ g.innerHTML='<div style="color:var(--text3);font-size:.8rem">No lectures synced yet.</div>'; return; }
+  g.innerHTML = window._savedLectures.map(l => `
+    <div class="media-card">
+      <div class="mc-thumb">
+        <video src="${l.url}" controls style="width:100%;height:100%"></video>
+      </div>
+      <div class="mc-info">
+        <div class="mc-title">${l.name}</div>
+        <div class="mc-meta">${l.time} · Recorded by Host</div>
+      </div>
+    </div>
+  `).join('');
 }
 function addDriveFile(name,size,icon,status){
   S.driveFiles.unshift({name,size,icon,status});
@@ -1929,11 +2188,27 @@ function renderDriveFiles(){
 function exportWhiteboard(){
   const c=document.getElementById('wbCanvas');
   const url=c.toDataURL('image/png');
-  const name='whiteboard_'+S.roomId+'.png';
-  const a=document.createElement('a');a.href=url;a.download=name;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  const name=(S.sessionTopic||'Notes')+'_'+new Date().toISOString().slice(0,10)+'.png';
   addDriveFile(name,'~200 KB','📄','synced');
-  toast('Whiteboard saved as PNG','📄');
+  window._savedNotes.push({name: name, url: url, time: new Date().toLocaleTimeString()});
+  refreshNotesGrid();
+  toast('Whiteboard auto-synced to LMS','📄');
+}
+function refreshNotesGrid() {
+  const g = document.getElementById('notesGrid');
+  if(!g) return;
+  if(!window._savedNotes.length){ g.innerHTML='<div style="color:var(--text3);font-size:.8rem">No notes synced yet.</div>'; return; }
+  g.innerHTML = window._savedNotes.map(n => `
+    <div class="media-card">
+      <div class="mc-thumb" style="background:#fff">
+        <img src="${n.url}" style="width:100%;height:100%;object-fit:contain">
+      </div>
+      <div class="mc-info">
+        <div class="mc-title">${n.name}</div>
+        <div class="mc-meta">${n.time} · Smart Sync</div>
+      </div>
+    </div>
+  `).join('');
 }
 function exportChat(){
   const lines=S.chatLog.map(m=>m.sender+': '+m.txt).join('\n');
@@ -2886,19 +3161,21 @@ function startSessionTimer() {
   _timerSec = 0;
   if (_timerInterval) clearInterval(_timerInterval);
 
-  // Use duration set in lobby
-  const durMin = S.sessionDurMin || 0;
-  if (durMin > 0) {
-    // Countdown mode — meeting ends when timer hits 0
-    _timerMode = 'down';
-    _timerTarget = durMin * 60;
-    toast('Session timer: ' + durMin + ' min · meeting ends automatically', '⏱');
-  } else {
-    // No limit — count up
-    _timerMode = 'up';
-  }
+  const durMin = S.sessionDurMin || 60; // Now defaulting to 60 as per rules
+  _timerMode = 'down';
+  _timerTarget = durMin * 60;
 
-  _timerInterval = setInterval(() => { _timerSec++; renderTimer(); }, 1000);
+  _timerInterval = setInterval(() => { 
+    _timerSec++; 
+    renderTimer(); 
+    
+    // 15-Minute Warning (45 minutes elapsed of a 60 min class)
+    if (_timerSec === (durMin - 15) * 60) {
+      toast('WARNING: Class will be ended in 15 minutes. Please wrap up soon.', '⚠️');
+      sysMsg('The class session will automatically end in 15 minutes.');
+    }
+    
+  }, 1000);
 }
 
 function stopSessionTimer() {
