@@ -2412,10 +2412,18 @@ async function toggleRec(){
         timer.textContent=pad(Math.floor(S.recSec/60))+':'+pad(S.recSec%60);
         timer.style.color='';
       }
-    },1000);
+    }, 1000);
     
     try {
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
+      // Prioritize mp4 if the browser supports it, else use high-compatibility webm
+      let mime = 'video/webm;codecs=vp9,opus';
+      if (MediaRecorder.isTypeSupported('video/mp4')) {
+        mime = 'video/mp4';
+      } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+        mime = 'video/webm;codecs=h264';
+      } else if (!MediaRecorder.isTypeSupported(mime)) {
+        mime = 'video/webm';
+      }
       
       // Mix all audio tracks via Web Audio API
       S.recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2481,40 +2489,100 @@ async function toggleRec(){
     S.recStopping = false;
   }
 }
-function finishRecording(){
+async function finishRecording(){
   const status=document.getElementById('recStatus');
   const prog=document.getElementById('uploadProgress');
   if (S.recAudioCtx) { S.recAudioCtx.close().catch(()=>{}); S.recAudioCtx = null; }
-  status.textContent='Saved ✓';
-  prog.style.display='none';
-  const fname=(S.sessionTopic||'Lecture')+'_'+new Date().toISOString().slice(0,10)+'.webm';
+  
   if(S.recChunks.length){
-    const blob=new Blob(S.recChunks,{type:'video/webm'});
-    const url=URL.createObjectURL(blob);
-    addDriveFile(fname,formatBytes(blob.size),'🎬','synced');
-    window._savedLectures.push({name: fname, url: url, time: new Date().toLocaleTimeString()});
-    refreshLecturesGrid();
-    toast('Lecture auto-synced to LMS','💾');
+    status.textContent='Uploading to AWS S3...';
+    prog.style.display='block';
+    document.getElementById('uploadFill').style.width = '40%';
+    
+    const blob=new Blob(S.recChunks, {type: S.mediaRecorder.mimeType || 'video/mp4'});
+    const rawName=(S.sessionTopic||'Lecture').replace(/[^a-zA-Z0-9]/g, '_');
+    const fname = `rec_${rawName}_${Date.now()}.mp4`;
+    
+    try {
+      // 1. Get Presigned URL securely from our backend
+      const res = await fetch('/api/s3-presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: fname, contentType: 'video/mp4' })
+      });
+      if(!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      
+      document.getElementById('uploadFill').style.width = '70%';
+      
+      // 2. Upload straight to S3 from browser
+      const s3Res = await fetch(data.presignedUrl, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'video/mp4',
+          'Content-Disposition': 'inline' 
+        },
+        body: blob
+      });
+      
+      if (!s3Res.ok) {
+        const errorText = await s3Res.text();
+        console.error("S3 Upload Error Response:", errorText);
+        throw new Error('S3 Upload Failed: ' + s3Res.status + ' ' + s3Res.statusText);
+      }
+      
+      // 3. Complete
+      document.getElementById('uploadFill').style.width = '100%';
+      setTimeout(()=> prog.style.display='none', 1000);
+      status.textContent='Saved to Cloud ✓';
+      
+      addDriveFile(fname, formatBytes(blob.size), '🎬', 'synced');
+      // Store the S3 Key instead of the URL
+      window._savedLectures.push({name: fname, key: data.fileKey, time: new Date().toLocaleTimeString()});
+      refreshLecturesGrid();
+      toast('Lecture auto-synced to AWS S3!','☁️');
+      
+    } catch(err) {
+      console.error(err);
+      prog.style.display='none';
+      status.textContent='Upload Failed';
+      toast('S3 upload failed. Check AWS credentials or console.', '❌');
+    }
   } else {
-    addDriveFile(fname,'~0 KB','🎬','synced');
+    status.textContent='Finished';
     toast('Recording saved (no stream captured)','💾');
   }
 }
-function refreshLecturesGrid() {
+async function refreshLecturesGrid() {
   const g = document.getElementById('lecturesGrid');
   if(!g) return;
   if(!window._savedLectures.length){ g.innerHTML='<div style="color:var(--text3);font-size:.8rem">No lectures synced yet.</div>'; return; }
-  g.innerHTML = window._savedLectures.map(l => `
-    <div class="media-card">
-      <div class="mc-thumb">
-        <video src="${l.url}" controls style="width:100%;height:100%"></video>
+  
+  let html = '';
+  for (const l of window._savedLectures) {
+    let playUrl = l.url || '';
+    if (l.key) {
+      // Get a fresh signed URL for this private video
+      try {
+        const res = await fetch(`/api/s3-view?key=${encodeURIComponent(l.key)}`);
+        const data = await res.json();
+        playUrl = data.url;
+      } catch(e) { console.warn("Failed to sign video", e); }
+    }
+    
+    html += `
+      <div class="media-card">
+        <div class="mc-thumb">
+          <video src="${playUrl}" controls style="width:100%;height:100%"></video>
+        </div>
+        <div class="mc-info">
+          <div class="mc-title">${l.name}</div>
+          <div class="mc-meta">${l.time} · Secured via S3</div>
+        </div>
       </div>
-      <div class="mc-info">
-        <div class="mc-title">${l.name}</div>
-        <div class="mc-meta">${l.time} · Recorded by Host</div>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }
+  g.innerHTML = html;
 }
 function addDriveFile(name,size,icon,status){
   S.driveFiles.unshift({name,size,icon,status});

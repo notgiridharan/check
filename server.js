@@ -17,6 +17,8 @@ const express = require('express');
 const http    = require('http');
 const { Server } = require('socket.io');
 const path    = require('path');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 // ─── App setup ────────────────────────────────────────────────────────────────
 const app    = express();
@@ -32,6 +34,57 @@ const io     = new Server(server, {
 
 // Serve all static files from the project root (html, js, etc.)
 app.use(express.static(path.join(__dirname)));
+app.use(express.json());
+
+// ─── AWS S3 Setup ─────────────────────────────────────────────────────────────
+const s3Client = new S3Client({
+  region: "ap-south-1",
+  credentials: {
+    accessKeyId: "AKIAXKTBQEI7XN4LUIBD", 
+    secretAccessKey: "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",
+  },
+});
+const BUCKET_NAME = "my-screen-recordings-2026";
+
+app.post('/api/s3-presign', async (req, res) => {
+  try {
+    const { filename, contentType } = req.body;
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: `recordings/${filename}`,
+      ContentType: contentType,
+      ContentDisposition: 'inline'
+    });
+    
+    // Generate a presigned URL valid for 1 hour
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    
+    // Return the file key so we can sign it for viewing later
+    const fileKey = `recordings/${filename}`;
+    res.json({ presignedUrl, fileKey });
+  } catch (err) {
+    console.error("Presign error:", err);
+    res.status(500).json({ error: "Failed to generate presigned URL" });
+  }
+});
+
+app.get('/api/s3-view', async (req, res) => {
+  try {
+    const { key } = req.query;
+    if(!key) return res.status(400).send("Missing key");
+    
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: key,
+    });
+    
+    const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    res.json({ url });
+  } catch (err) {
+    console.error("View sign error:", err);
+    res.status(500).json({ error: "Failed to generate view URL" });
+  }
+});
 
 // Root → main UI
 app.get('/', (_req, res) =>
