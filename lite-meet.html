@@ -20,6 +20,7 @@
 <title>LiteMeet</title>
 <link href="https://fonts.googleapis.com/css2?family=Albert+Sans:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script>
 // Detect if we are running against the LiteMeet server or as a standalone file
 window.LITEMEET_SERVER_URL = (location.protocol === 'file:')
@@ -746,7 +747,8 @@ input[type=range].ai-sl::-webkit-slider-thumb{
 
   <div class="topbar">
     <div class="topbar-brand">Lite<em>Meet</em></div>
-    <div class="room-pill" id="roomPill" onclick="copyRoom()">ROOM-XXXX</div>
+    <button class="btn-xs ghost" onclick="returnToDashboard()" style="margin-left: 1rem; border-radius: 12px; font-weight: 600; padding: 0.4rem 0.8rem;">← Dashboard</button>
+    <div class="room-pill" id="roomPill" onclick="copyRoom()" style="margin-left:auto">ROOM-XXXX</div>
     <div class="spacer"></div>
     <div class="net-badge good" id="netBadge" onclick="openNetModal()" title="Click for network details"><div class="net-dot"></div><span id="netLabel">4G · —ms</span></div>
     <div class="topbar-name" id="topName">—</div>
@@ -1186,10 +1188,31 @@ window._savedLectures = [];
 window._savedNotes = [];
 window._activeSessions = JSON.parse(localStorage.getItem('_activeSessions')) || [];
 window._activeAssignments = JSON.parse(localStorage.getItem('_activeAssignments')) || [];
+let lmsSocket = null;
 
 function saveLMS() {
   localStorage.setItem('_activeSessions', JSON.stringify(window._activeSessions));
   localStorage.setItem('_activeAssignments', JSON.stringify(window._activeAssignments));
+  if (lmsSocket) {
+    lmsSocket.emit('lms-update-state', { sessions: window._activeSessions, assignments: window._activeAssignments });
+  }
+}
+
+function initLMSSync() {
+  if (!window.io) return;
+  lmsSocket = io();
+  lmsSocket.on('lms-sync-state', (state) => {
+    if (state && state.sessions) {
+      window._activeSessions = state.sessions;
+      window._activeAssignments = state.assignments || [];
+      localStorage.setItem('_activeSessions', JSON.stringify(window._activeSessions));
+      localStorage.setItem('_activeAssignments', JSON.stringify(window._activeAssignments));
+      refreshSessionsGrid();
+      refreshAssignmentsGrid();
+      refreshDashboardUI();
+    }
+  });
+  lmsSocket.emit('lms-get-state');
 }
 
 function switchView(vid, btnEl) {
@@ -1233,13 +1256,14 @@ function processLogin() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appWrapper').classList.add('active');
   switchView('dashboardView', document.querySelector('.spa-nbtn'));
+  initLMSSync();
   initLMSMonitoring();
 }
 
 function initLMSMonitoring() {
   let lastCount = window._activeSessions.length;
   setInterval(() => {
-    // Mock polling: in same browser session, check if teacher started a session
+    // Check if teacher started a session (works via socket sync now!)
     if (S.role === 'student' && window._activeSessions.length > lastCount) {
       const live = window._activeSessions[0];
       toast('LIVE: ' + live.topic + ' has started!', '🎥');
@@ -1508,6 +1532,38 @@ function joinRoom(){
   delete S.manualRoomId;
   
   initRoom();
+}
+
+function returnToDashboard(isBackgroundReturn = false) {
+  // Hide meeting room components
+  document.getElementById('room').style.display = 'none';
+  // Re-activate side navigation 
+  document.querySelector('.spa-sidebar').style.display = 'flex';
+  
+  if (!isBackgroundReturn) {
+    switchView('dashboardView', document.querySelector('.spa-nbtn'));
+  }
+  
+  // Show a floating "Return to active class" button so they can come back
+  if (LM && !document.getElementById('floatingReturnBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'floatingReturnBtn';
+    btn.innerHTML = '📞 Return to Class';
+    btn.className = 'btn-join';
+    btn.style.position = 'fixed';
+    btn.style.bottom = '2rem';
+    btn.style.right = '2rem';
+    btn.style.zIndex = '9999';
+    btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.4)';
+    btn.style.borderRadius = '20px';
+    btn.style.animation = 'tIn 0.3s ease';
+    btn.onclick = () => {
+      document.getElementById('room').style.display = 'flex';
+      document.querySelector('.spa-sidebar').style.display = 'none';
+      btn.remove();
+    };
+    document.body.appendChild(btn);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -4223,8 +4279,14 @@ function endCall() {
   if (LM) { LM.disconnect(); LM = null; }
   for (const id of _analysers.keys()) stopAudioDetection(id);
   toast('Session ended', '👋');
+  
+  // Remove floating button if it exists
+  const fbtn = document.getElementById('floatingReturnBtn');
+  if(fbtn) fbtn.remove();
+
   setTimeout(() => {
     switchView('dashboardView', document.querySelector('.spa-nbtn'));
+    document.getElementById('room').style.display = 'none';
     const v = document.getElementById('localVideo');
     v.srcObject = null; v.style.display = 'none';
     document.getElementById('localAvatarWrap').style.display = 'flex';

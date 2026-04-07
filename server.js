@@ -53,6 +53,12 @@ app.get('/', (_req, res) =>
  */
 const rooms = new Map();
 
+// ─── Global LMS State ─────────────────────────────────────────────────────────
+const lmsState = {
+  sessions: [],
+  assignments: []
+};
+
 function getRoomOrCreate(roomId) {
   if (!rooms.has(roomId)) {
     rooms.set(roomId, {
@@ -111,6 +117,18 @@ io.on('connection', socket => {
     }
 
     _completeJoin(socket, room, roomId, name, role);
+  });
+
+  // ── LMS Sync ─────────────────────────────────────────────────────────────
+  socket.on('lms-get-state', () => {
+    socket.emit('lms-sync-state', lmsState);
+  });
+
+  socket.on('lms-update-state', (payload) => {
+    lmsState.sessions = payload.sessions || lmsState.sessions;
+    lmsState.assignments = payload.assignments || lmsState.assignments;
+    // Broadcast to everyone else
+    socket.broadcast.emit('lms-sync-state', lmsState);
   });
 
   // ── Host admits knock ─────────────────────────────────────────────────────
